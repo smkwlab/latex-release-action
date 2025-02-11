@@ -40,5 +40,5 @@ runs:
           ${{ inputs.file }}.pdf
         tag_name: ${{ format('{0}-release', github.head_ref || github.ref_name || format('release-{0}', github.run_number)) }}
         draft: false
-        prerelease: ${{ github.event_name == 'pull_request_target' }}
+        prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
         generate_release_notes: true
