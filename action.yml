@@ -2,8 +2,8 @@ name: 'LaTeX Release Action'
 description: 'Build LaTeX document and create GitHub Release'
 
 inputs:
-  file:
-    description: 'LaTeX file name without .tex extension'
+  files:
+    description: 'Comma-separated list of LaTeX file names without .tex extension'
     required: true
 
 runs:
@@ -14,30 +14,61 @@ runs:
       with:
         ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
-    - name: Check tex file existence
+    - name: Prepare file list
+      id: prepare
+      shell: bash
+      run: |
+        # Convert comma-separated list to array and trim whitespace
+        IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
+        # Create JSON array for file existence check
+        FILES_TO_CHECK=""
+        for file in "${TEX_FILES[@]}"; do
+          file=$(echo $file | xargs)  # trim whitespace
+          FILES_TO_CHECK+="$file.tex,"
+        done
+        FILES_TO_CHECK=${FILES_TO_CHECK%,}  # remove trailing comma
+        echo "tex_files=${FILES_TO_CHECK}" >> $GITHUB_OUTPUT
+
+    - name: Check tex files existence
       id: check_src
       uses: andstor/file-existence-action@v3
       with:
-        files: ${{ inputs.file }}.tex
+        files: ${{ steps.prepare.outputs.tex_files }}
 
-    - name: Build PDF file by latexmk
+    - name: Build PDF files by latexmk
       if: steps.check_src.outputs.files_exists == 'true'
       shell: bash
       run: |
-        latexmk ${{ inputs.file }}.tex
+        IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
+        for file in "${TEX_FILES[@]}"; do
+          file=$(echo $file | xargs)
+          latexmk "$file.tex"
+        done
 
-    - name: Check PDF file existence
+    - name: Check PDF files existence
       id: check_pdf
-      uses: andstor/file-existence-action@v3
-      with:
-        files: ${{ inputs.file }}.pdf
-    
+      shell: bash
+      run: |
+        IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
+        ALL_EXIST=true
+        PDF_FILES=""
+        for file in "${TEX_FILES[@]}"; do
+          file=$(echo $file | xargs)
+          if [ ! -f "$file.pdf" ]; then
+            ALL_EXIST=false
+            break
+          fi
+          PDF_FILES+="$file.pdf,"
+        done
+        PDF_FILES=${PDF_FILES%,}
+        echo "all_exist=$ALL_EXIST" >> $GITHUB_OUTPUT
+        echo "pdf_files=$PDF_FILES" >> $GITHUB_OUTPUT
+
     - name: Create a release
-      if: steps.check_pdf.outputs.files_exists == 'true'
+      if: steps.check_pdf.outputs.all_exist == 'true'
       uses: softprops/action-gh-release@v2
       with:
-        files: |
-          ${{ inputs.file }}.pdf
+        files: ${{ steps.check_pdf.outputs.pdf_files }}
         tag_name: ${{ format('{0}-release', github.head_ref || github.ref_name || format('release-{0}', github.run_number)) }}
         draft: false
         prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
