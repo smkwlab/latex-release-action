@@ -56,7 +56,8 @@ The action has been updated to support multiple files in v2. To migrate from v1:
 ## Requirements
 
 - The LaTeX files must be in the repository root
-- Uses `ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine` container
+- Requires a Docker container with `latexmk` capability
+  - Example: `ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine`
 - Requires `contents: write` permission for creating releases
 
 ## Contributing
