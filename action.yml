@@ -5,6 +5,21 @@ inputs:
   files:
     description: 'Comma-separated list of LaTeX file names without .tex extension'
     required: true
+  latex_options:
+    description: 'Additional latexmk options'
+    required: false
+    default: '-pdf -interaction=nonstopmode'
+  release_name:
+    description: 'Custom release name (optional)'
+    required: false
+  cleanup:
+    description: 'Clean up intermediate files after build'
+    required: false
+    default: 'true'
+  parallel:
+    description: 'Build files in parallel'
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -18,16 +33,45 @@ runs:
       id: prepare
       shell: bash
       run: |
+        echo "::group::Preparing file list"
+        echo "Input files: ${{ inputs.files }}"
+        
         # Convert comma-separated list to array and trim whitespace
         IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
         # Create JSON array for file existence check
         FILES_TO_CHECK=""
+        PROCESSED_FILES=""
+        
         for file in "${TEX_FILES[@]}"; do
           file=$(echo $file | xargs)  # trim whitespace
+          if [[ -z "$file" ]]; then
+            echo "::warning::Empty file name found in input, skipping"
+            continue
+          fi
+          
+          # Sanitize file name (remove potentially dangerous characters)
+          if [[ ! "$file" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
+            echo "::error::Invalid file name: $file (only alphanumeric, underscore, hyphen, and slash allowed)"
+            exit 1
+          fi
+          
           FILES_TO_CHECK+="$file.tex,"
+          PROCESSED_FILES+="$file,"
+          echo "Added file: $file.tex"
         done
+        
         FILES_TO_CHECK=${FILES_TO_CHECK%,}  # remove trailing comma
+        PROCESSED_FILES=${PROCESSED_FILES%,}  # remove trailing comma
+        
+        if [[ -z "$FILES_TO_CHECK" ]]; then
+          echo "::error::No valid files found in input"
+          exit 1
+        fi
+        
+        echo "Files to check: $FILES_TO_CHECK"
         echo "tex_files=${FILES_TO_CHECK}" >> $GITHUB_OUTPUT
+        echo "processed_files=${PROCESSED_FILES}" >> $GITHUB_OUTPUT
+        echo "::endgroup::"
 
     - name: Check tex files existence
       id: check_src
@@ -39,30 +83,121 @@ runs:
       if: steps.check_src.outputs.files_exists == 'true'
       shell: bash
       run: |
-        IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
-        for file in "${TEX_FILES[@]}"; do
-          file=$(echo $file | xargs)
-          latexmk "$file.tex"
-        done
+        echo "::group::Building LaTeX files"
+        echo "LaTeX options: ${{ inputs.latex_options }}"
+        echo "Parallel build: ${{ inputs.parallel }}"
+        
+        IFS=',' read -ra TEX_FILES <<< "${{ steps.prepare.outputs.processed_files }}"
+        BUILD_FAILED=false
+        
+        if [[ "${{ inputs.parallel }}" == "true" ]]; then
+          echo "Building files in parallel..."
+          pids=()
+          
+          for file in "${TEX_FILES[@]}"; do
+            file=$(echo $file | xargs)
+            echo "Starting build for: $file.tex"
+            (
+              if ! latexmk ${{ inputs.latex_options }} "$file.tex"; then
+                echo "::error::Failed to build $file.tex"
+                echo "FAILED_$file" > "build_status_$file"
+                exit 1
+              else
+                echo "SUCCESS_$file" > "build_status_$file"
+              fi
+            ) &
+            pids+=($!)
+          done
+          
+          # Wait for all builds to complete
+          for pid in "${pids[@]}"; do
+            if ! wait $pid; then
+              BUILD_FAILED=true
+            fi
+          done
+          
+          # Check build status files
+          for file in "${TEX_FILES[@]}"; do
+            file=$(echo $file | xargs)
+            if [[ -f "build_status_$file" ]]; then
+              status=$(cat "build_status_$file")
+              if [[ "$status" == "FAILED_$file" ]]; then
+                echo "::error::Build failed for $file.tex"
+                BUILD_FAILED=true
+              else
+                echo "✓ Successfully built $file.tex"
+              fi
+              rm -f "build_status_$file"
+            fi
+          done
+        else
+          echo "Building files sequentially..."
+          for file in "${TEX_FILES[@]}"; do
+            file=$(echo $file | xargs)
+            echo "Building: $file.tex"
+            
+            if ! latexmk ${{ inputs.latex_options }} "$file.tex"; then
+              echo "::error::Failed to build $file.tex"
+              echo "LaTeX build failed. Check the logs above for details."
+              BUILD_FAILED=true
+              break
+            else
+              echo "✓ Successfully built $file.tex"
+            fi
+          done
+        fi
+        
+        if [[ "$BUILD_FAILED" == "true" ]]; then
+          echo "::error::One or more LaTeX builds failed"
+          exit 1
+        fi
+        
+        echo "::endgroup::"
 
-    - name: Check PDF files existence
+    - name: Check PDF files and cleanup
       id: check_pdf
       shell: bash
       run: |
-        IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
+        echo "::group::Checking PDF files and cleanup"
+        IFS=',' read -ra TEX_FILES <<< "${{ steps.prepare.outputs.processed_files }}"
         ALL_EXIST=true
         PDF_FILES=""
+        
         for file in "${TEX_FILES[@]}"; do
           file=$(echo $file | xargs)
           if [ ! -f "$file.pdf" ]; then
+            echo "::error::PDF file not found: $file.pdf"
             ALL_EXIST=false
-            break
+          else
+            echo "✓ Found PDF: $file.pdf"
+            PDF_FILES+="$file.pdf,"
           fi
-          PDF_FILES+="$file.pdf,"
         done
+        
         PDF_FILES=${PDF_FILES%,}
         echo "all_exist=$ALL_EXIST" >> $GITHUB_OUTPUT
         echo "pdf_files=$PDF_FILES" >> $GITHUB_OUTPUT
+        
+        # Cleanup intermediate files if requested
+        if [[ "${{ inputs.cleanup }}" == "true" ]]; then
+          echo "Cleaning up intermediate files..."
+          for file in "${TEX_FILES[@]}"; do
+            file=$(echo $file | xargs)
+            # Remove common LaTeX intermediate files
+            rm -f "$file.aux" "$file.log" "$file.fls" "$file.fdb_latexmk" \
+                  "$file.synctex.gz" "$file.out" "$file.toc" "$file.lot" \
+                  "$file.lof" "$file.bbl" "$file.blg" "$file.idx" \
+                  "$file.ind" "$file.ilg" "$file.nav" "$file.snm" \
+                  "$file.vrb" "$file.figlist" "$file.makefile" \
+                  "$file.figlist.makefile" "$file.figlist.fls" \
+                  "$file.figlist.fdb_latexmk"
+          done
+          echo "Cleanup completed"
+        else
+          echo "Skipping cleanup (cleanup=false)"
+        fi
+        
+        echo "::endgroup::"
 
     - name: Create a release
       if: steps.check_pdf.outputs.all_exist == 'true'
@@ -70,6 +205,22 @@ runs:
       with:
         files: ${{ steps.check_pdf.outputs.pdf_files }}
         tag_name: ${{ format('{0}-release', github.head_ref || github.ref_name || format('release-{0}', github.run_number)) }}
+        name: ${{ inputs.release_name || format('{0} Release', github.head_ref || github.ref_name || format('Release {0}', github.run_number)) }}
         draft: false
         prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
         generate_release_notes: true
+        body: |
+          ## 📄 LaTeX Build Results
+          
+          This release contains compiled PDF files from the following LaTeX sources:
+          
+          **Built files:**
+          ${{ steps.prepare.outputs.processed_files }}
+          
+          **Build options:** `${{ inputs.latex_options }}`
+          **Parallel build:** ${{ inputs.parallel }}
+          **Cleanup performed:** ${{ inputs.cleanup }}
+          
+          ---
+          
+          🤖 *This release was automatically generated by [LaTeX Release Action](https://github.com/smkwlab/latex-release-action)*
