@@ -93,43 +93,60 @@ runs:
         if [[ "${{ inputs.parallel }}" == "true" ]]; then
           echo "Building files in parallel..."
           pids=()
+          temp_dir=$(mktemp -d)
+          echo "Using temporary directory: $temp_dir"
           
           for file in "${TEX_FILES[@]}"; do
             file=$(echo $file | xargs)
+            # Sanitize filename for use in temp file names
+            safe_name=$(echo "$file" | tr '/' '_')
             echo "Starting build for: $file.tex"
             (
-              if ! latexmk ${{ inputs.latex_options }} "$file.tex"; then
-                echo "::error::Failed to build $file.tex"
-                echo "FAILED_$file" > "build_status_$file"
-                exit 1
+              if latexmk ${{ inputs.latex_options }} "$file.tex" 2>&1; then
+                echo "0" > "$temp_dir/exit_$safe_name"
+                echo "✓ Successfully built $file.tex"
               else
-                echo "SUCCESS_$file" > "build_status_$file"
+                echo "1" > "$temp_dir/exit_$safe_name"
+                echo "::error::Failed to build $file.tex"
+                exit 1
               fi
             ) &
             pids+=($!)
           done
           
-          # Wait for all builds to complete
-          for pid in "${pids[@]}"; do
-            if ! wait $pid; then
-              BUILD_FAILED=true
+          # Wait for all builds to complete and collect results
+          overall_success=true
+          for i in "${!pids[@]}"; do
+            pid=${pids[$i]}
+            file=$(echo "${TEX_FILES[$i]}" | xargs)
+            safe_name=$(echo "$file" | tr '/' '_')
+            
+            if wait $pid; then
+              echo "Process for $file.tex completed successfully"
+            else
+              echo "Process for $file.tex failed"
+              overall_success=false
+            fi
+            
+            # Double-check with exit code file
+            if [[ -f "$temp_dir/exit_$safe_name" ]]; then
+              exit_code=$(cat "$temp_dir/exit_$safe_name")
+              if [[ "$exit_code" != "0" ]]; then
+                echo "::error::Build failed for $file.tex (exit code: $exit_code)"
+                overall_success=false
+              fi
+            else
+              echo "::warning::No exit code file found for $file.tex"
+              overall_success=false
             fi
           done
           
-          # Check build status files
-          for file in "${TEX_FILES[@]}"; do
-            file=$(echo $file | xargs)
-            if [[ -f "build_status_$file" ]]; then
-              status=$(cat "build_status_$file")
-              if [[ "$status" == "FAILED_$file" ]]; then
-                echo "::error::Build failed for $file.tex"
-                BUILD_FAILED=true
-              else
-                echo "✓ Successfully built $file.tex"
-              fi
-              rm -f "build_status_$file"
-            fi
-          done
+          # Cleanup temporary directory
+          rm -rf "$temp_dir"
+          
+          if [[ "$overall_success" != "true" ]]; then
+            BUILD_FAILED=true
+          fi
         else
           echo "Building files sequentially..."
           for file in "${TEX_FILES[@]}"; do
