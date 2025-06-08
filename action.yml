@@ -8,7 +8,7 @@ inputs:
   latex_options:
     description: 'Additional latexmk options'
     required: false
-    default: '-pdf -interaction=nonstopmode'
+    default: '-interaction=nonstopmode'
   release_name:
     description: 'Custom release name (optional)'
     required: false
