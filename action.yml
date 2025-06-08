@@ -50,8 +50,8 @@ runs:
           fi
           
           # Sanitize file name (remove potentially dangerous characters)
-          if [[ ! "$file" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-            echo "::error::Invalid file name: $file (only alphanumeric, underscore, and hyphen allowed)"
+          if [[ ! "$file" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
+            echo "::error::Invalid file name: $file (only alphanumeric, underscore, hyphen, and slash allowed)"
             exit 1
           fi
           
