@@ -38,9 +38,10 @@ runs:
         
         # Convert comma-separated list to array and trim whitespace
         IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
-        # Create JSON array for file existence check
+        # Check file existence and build list of existing files only
         FILES_TO_CHECK=""
         PROCESSED_FILES=""
+        SKIPPED_FILES=""
         
         for file in "${TEX_FILES[@]}"; do
           file=$(echo $file | xargs)  # trim whitespace
@@ -55,32 +56,49 @@ runs:
             exit 1
           fi
           
-          FILES_TO_CHECK+="$file.tex,"
-          PROCESSED_FILES+="$file,"
-          echo "Added file: $file.tex"
+          # Check if the .tex file exists
+          if [[ -f "$file.tex" ]]; then
+            FILES_TO_CHECK+="$file.tex,"
+            PROCESSED_FILES+="$file,"
+            echo "✓ Found file: $file.tex"
+          else
+            SKIPPED_FILES+="$file.tex,"
+            echo "⚠ Skipping missing file: $file.tex"
+          fi
         done
         
         FILES_TO_CHECK=${FILES_TO_CHECK%,}  # remove trailing comma
         PROCESSED_FILES=${PROCESSED_FILES%,}  # remove trailing comma
+        SKIPPED_FILES=${SKIPPED_FILES%,}  # remove trailing comma
         
         if [[ -z "$FILES_TO_CHECK" ]]; then
-          echo "::error::No valid files found in input"
-          exit 1
+          echo "::warning::No valid LaTeX files found to build. All specified files are missing:"
+          if [[ -n "$SKIPPED_FILES" ]]; then
+            echo "Missing files: $SKIPPED_FILES"
+          fi
+          echo "existing_files=false" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+          exit 0
         fi
         
-        echo "Files to check: $FILES_TO_CHECK"
+        echo "Files to build: $FILES_TO_CHECK"
+        if [[ -n "$SKIPPED_FILES" ]]; then
+          echo "Skipped files: $SKIPPED_FILES"
+        fi
         echo "tex_files=${FILES_TO_CHECK}" >> $GITHUB_OUTPUT
         echo "processed_files=${PROCESSED_FILES}" >> $GITHUB_OUTPUT
+        echo "existing_files=true" >> $GITHUB_OUTPUT
         echo "::endgroup::"
 
     - name: Check tex files existence
       id: check_src
+      if: steps.prepare.outputs.existing_files == 'true'
       uses: andstor/file-existence-action@v3
       with:
         files: ${{ steps.prepare.outputs.tex_files }}
 
     - name: Build PDF files by latexmk
-      if: steps.check_src.outputs.files_exists == 'true'
+      if: steps.prepare.outputs.existing_files == 'true'
       shell: bash
       run: |
         echo "::group::Building LaTeX files"
@@ -173,6 +191,7 @@ runs:
 
     - name: Check PDF files and cleanup
       id: check_pdf
+      if: steps.prepare.outputs.existing_files == 'true'
       shell: bash
       run: |
         echo "::group::Checking PDF files and cleanup"
@@ -217,7 +236,7 @@ runs:
         echo "::endgroup::"
 
     - name: Create a release
-      if: steps.check_pdf.outputs.all_exist == 'true'
+      if: steps.prepare.outputs.existing_files == 'true' && steps.check_pdf.outputs.all_exist == 'true'
       uses: softprops/action-gh-release@v2
       with:
         files: ${{ steps.check_pdf.outputs.pdf_files }}

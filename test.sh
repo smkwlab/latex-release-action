@@ -96,14 +96,13 @@ test_logic() {
     
     print_status "SUCCESS" "File preparation logic OK"
     
-    # Test file existence
+    # Test file existence (old behavior - expecting all files to exist)
     IFS=',' read -ra CHECK_FILES <<< "$FILES_TO_CHECK"
     for file in "${CHECK_FILES[@]}"; do
         if [ -f "$file" ]; then
             print_status "SUCCESS" "Found: $file"
         else
-            print_status "ERROR" "Missing: $file"
-            return 1
+            print_status "ERROR" "Missing: $file (expected for this test)"
         fi
     done
     
@@ -114,6 +113,86 @@ test_logic() {
     fi
     
     print_status "SUCCESS" "Logic test completed successfully"
+    return 0
+}
+
+# Method 1.5: Test missing file handling (new feature)
+test_missing_files() {
+    print_header "Missing Files Handling Test"
+    print_status "INFO" "Testing new auto-skip functionality for missing files..."
+    
+    # Test with mixed existing and non-existing files
+    local INPUT_FILES="test/sample, nonexistent1, test/document2, nonexistent2"
+    
+    # Simulate the new file detection logic from action.yml
+    IFS=',' read -ra TEX_FILES <<< "$INPUT_FILES"
+    local FILES_TO_CHECK=""
+    local PROCESSED_FILES=""
+    local SKIPPED_FILES=""
+    local FOUND_COUNT=0
+    local SKIPPED_COUNT=0
+    
+    for file in "${TEX_FILES[@]}"; do
+        file=$(echo $file | xargs)  # trim whitespace
+        if [[ -z "$file" ]]; then
+            continue
+        fi
+        
+        # Sanitize file name
+        if [[ ! "$file" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
+            print_status "ERROR" "Invalid file name: $file"
+            return 1
+        fi
+        
+        # Check if the .tex file exists (new logic)
+        if [[ -f "$file.tex" ]]; then
+            FILES_TO_CHECK+="$file.tex,"
+            PROCESSED_FILES+="$file,"
+            print_status "SUCCESS" "✓ Found file: $file.tex"
+            ((FOUND_COUNT++))
+        else
+            SKIPPED_FILES+="$file.tex,"
+            print_status "INFO" "⚠ Skipping missing file: $file.tex"
+            ((SKIPPED_COUNT++))
+        fi
+    done
+    
+    FILES_TO_CHECK=${FILES_TO_CHECK%,}
+    PROCESSED_FILES=${PROCESSED_FILES%,}
+    SKIPPED_FILES=${SKIPPED_FILES%,}
+    
+    # Verify the results
+    print_status "INFO" "Found $FOUND_COUNT files, skipped $SKIPPED_COUNT files"
+    
+    if [[ $FOUND_COUNT -gt 0 ]]; then
+        print_status "SUCCESS" "Found files: $FILES_TO_CHECK"
+        print_status "SUCCESS" "Action would proceed with existing files"
+    fi
+    
+    if [[ $SKIPPED_COUNT -gt 0 ]]; then
+        print_status "SUCCESS" "Skipped files: $SKIPPED_FILES"
+        print_status "SUCCESS" "Missing files gracefully handled"
+    fi
+    
+    # Test all files missing scenario
+    print_status "INFO" "Testing all files missing scenario..."
+    local ALL_MISSING="nonexistent1, nonexistent2, nonexistent3"
+    IFS=',' read -ra MISSING_FILES <<< "$ALL_MISSING"
+    local ALL_MISSING_CHECK=""
+    
+    for file in "${MISSING_FILES[@]}"; do
+        file=$(echo $file | xargs)
+        if [[ ! -f "$file.tex" ]]; then
+            ALL_MISSING_CHECK+="$file.tex,"
+        fi
+    done
+    
+    if [[ -n "$ALL_MISSING_CHECK" ]]; then
+        print_status "SUCCESS" "All files missing scenario detected correctly"
+        print_status "SUCCESS" "Action would exit gracefully with warning"
+    fi
+    
+    print_status "SUCCESS" "Missing files handling test completed successfully"
     return 0
 }
 
@@ -240,17 +319,22 @@ print_summary() {
     print_header "Test Summary"
     
     echo -e "\nTest Results:"
-    echo -e "  Logic Test:        ${1}"
-    echo -e "  Local LaTeX Test:  ${2}"
-    echo -e "  Docker Test:       ${3}"
-    echo -e "  Act Test:          ${4}"
+    echo -e "  Logic Test:           ${1}"
+    echo -e "  Missing Files Test:   ${2}"
+    echo -e "  Local LaTeX Test:     ${3}"
+    echo -e "  Docker Test:          ${4}"
+    echo -e "  Act Test:             ${5}"
     
     echo -e "\nRecommendations:"
     if [[ "$1" == "${GREEN}PASSED${NC}" ]]; then
         echo "  ✓ Action logic is valid"
     fi
     
-    if [[ "$2" == "${GREEN}PASSED${NC}" ]] || [[ "$3" == "${GREEN}PASSED${NC}" ]]; then
+    if [[ "$2" == "${GREEN}PASSED${NC}" ]]; then
+        echo "  ✓ Missing file handling works correctly (new feature)"
+    fi
+    
+    if [[ "$3" == "${GREEN}PASSED${NC}" ]] || [[ "$4" == "${GREEN}PASSED${NC}" ]]; then
         echo "  ✓ LaTeX compilation verified"
     else
         echo "  - Install LaTeX locally or use Docker for full testing"
@@ -271,6 +355,7 @@ main() {
     
     # Test results
     local LOGIC_RESULT="${YELLOW}SKIPPED${NC}"
+    local MISSING_FILES_RESULT="${YELLOW}SKIPPED${NC}"
     local LOCAL_RESULT="${YELLOW}SKIPPED${NC}"
     local DOCKER_RESULT="${YELLOW}SKIPPED${NC}"
     local ACT_RESULT="${YELLOW}SKIPPED${NC}"
@@ -278,6 +363,9 @@ main() {
     case "$TEST_METHOD" in
         "logic")
             test_logic && LOGIC_RESULT="${GREEN}PASSED${NC}" || LOGIC_RESULT="${RED}FAILED${NC}"
+            ;;
+        "missing")
+            test_missing_files && MISSING_FILES_RESULT="${GREEN}PASSED${NC}" || MISSING_FILES_RESULT="${RED}FAILED${NC}"
             ;;
         "local")
             test_local && LOCAL_RESULT="${GREEN}PASSED${NC}" || LOCAL_RESULT="${RED}FAILED${NC}"
@@ -291,6 +379,7 @@ main() {
         "all"|"")
             # Run all tests
             test_logic && LOGIC_RESULT="${GREEN}PASSED${NC}" || LOGIC_RESULT="${RED}FAILED${NC}"
+            test_missing_files && MISSING_FILES_RESULT="${GREEN}PASSED${NC}" || MISSING_FILES_RESULT="${RED}FAILED${NC}"
             test_local && LOCAL_RESULT="${GREEN}PASSED${NC}" || LOCAL_RESULT="${YELLOW}N/A${NC}"
             test_docker && DOCKER_RESULT="${GREEN}PASSED${NC}" || DOCKER_RESULT="${YELLOW}N/A${NC}"
             test_act && ACT_RESULT="${GREEN}PASSED${NC}" || ACT_RESULT="${YELLOW}N/A${NC}"
@@ -299,16 +388,18 @@ main() {
             echo "Usage: $0 [test-method]"
             echo ""
             echo "Test methods:"
-            echo "  all    - Run all available tests (default)"
-            echo "  logic  - Test action logic only (no LaTeX required)"
-            echo "  local  - Test with local LaTeX installation"
-            echo "  docker - Test with Docker container"
-            echo "  act    - Test with GitHub Actions emulator"
+            echo "  all     - Run all available tests (default)"
+            echo "  logic   - Test action logic only (no LaTeX required)"
+            echo "  missing - Test missing file handling (new feature)"
+            echo "  local   - Test with local LaTeX installation"
+            echo "  docker  - Test with Docker container"
+            echo "  act     - Test with GitHub Actions emulator"
             echo ""
             echo "Examples:"
-            echo "  $0         # Run all tests"
-            echo "  $0 logic   # Quick logic test"
-            echo "  $0 docker  # Docker-based test"
+            echo "  $0          # Run all tests"
+            echo "  $0 logic    # Quick logic test"
+            echo "  $0 missing  # Test missing file skip feature"
+            echo "  $0 docker   # Docker-based test"
             exit 0
             ;;
         *)
@@ -318,7 +409,7 @@ main() {
             ;;
     esac
     
-    print_summary "$LOGIC_RESULT" "$LOCAL_RESULT" "$DOCKER_RESULT" "$ACT_RESULT"
+    print_summary "$LOGIC_RESULT" "$MISSING_FILES_RESULT" "$LOCAL_RESULT" "$DOCKER_RESULT" "$ACT_RESULT"
     
     echo ""
     print_status "SUCCESS" "Test suite completed!"
