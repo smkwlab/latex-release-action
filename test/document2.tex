@@ -1,0 +1,36 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+
+\title{Second Test Document}
+\author{Test Suite}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\section{Purpose}
+This is the second test document to verify multi-file builds work correctly.
+
+\section{Features}
+\subsection{Bibliography Test}
+This document tests bibliography features \cite{example}.
+
+\subsection{Cross-references}
+See Section \ref{sec:conclusion} for the conclusion.
+
+\section{Conclusion}
+\label{sec:conclusion}
+Multi-file builds should work with this action.
+
+\begin{thebibliography}{9}
+\bibitem{example}
+Example Author.
+\textit{Example Title}.
+Example Publisher, 2023.
+\end{thebibliography}
+
+\end{document}
