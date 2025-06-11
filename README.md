@@ -35,7 +35,7 @@ on:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
     permissions:
       contents: write  # Required for creating releases
     steps:
@@ -59,7 +59,7 @@ on:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
     permissions:
       contents: write
     steps:
@@ -96,7 +96,7 @@ on:
 jobs:
   build-paper:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
     permissions:
       contents: write
     steps:
@@ -119,7 +119,7 @@ on:
 jobs:
   build-documents:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
     permissions:
       contents: write
     steps:
@@ -141,7 +141,7 @@ on:
 jobs:
   build-reports:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
     permissions:
       contents: write
     steps:
@@ -227,7 +227,7 @@ permissions:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine  # Recommended
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b  # Recommended
     permissions:
       contents: write
     steps:
