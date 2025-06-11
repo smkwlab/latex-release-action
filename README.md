@@ -35,7 +35,7 @@ on:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025-alpine
     permissions:
       contents: write  # Required for creating releases
     steps:
