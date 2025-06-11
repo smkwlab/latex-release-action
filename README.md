@@ -82,6 +82,7 @@ jobs:
 | `parallel` | ❌ | `false` | Enable parallel builds for multiple files |
 | `cleanup` | ❌ | `true` | Remove intermediate files after build |
 | `release_name` | ❌ | Auto-generated | Custom name for the GitHub release |
+| `include_source` | ❌ | `true` | Include source code in release assets |
 
 ## 🎯 Usage Examples
 
