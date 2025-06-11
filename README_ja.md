@@ -84,6 +84,7 @@ jobs:
 | `parallel` | ❌ | `false` | 複数ファイルの並列ビルドを有効化 |
 | `cleanup` | ❌ | `true` | ビルド後に中間ファイルを削除 |
 | `release_name` | ❌ | 自動生成 | GitHub Releaseのカスタム名 |
+| `include_source` | ❌ | `true` | リリースアセットにソースコードを含める |
 
 ## 🎯 使用例
 
