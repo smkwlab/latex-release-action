@@ -87,3 +87,28 @@ Recommended container: `ghcr.io/smkwlab/texlive-ja-textlint:2025b`
 - Japanese language support
 - Pre-built for performance
 - Includes latexmk and dependencies
+
+## MCP Tools Usage
+
+### GitHub Operations
+Use MCP tools instead of `gh` command for GitHub operations:
+- **Development**: Use `mcp__gh-toshi__*` tools for development work
+- **Student testing**: Use `mcp__gh-k19__*` tools only when testing student workflows
+
+### Shell Command Gotchas
+
+#### Backticks in gh pr create/edit
+When using `gh pr create` or `gh pr edit` with `--body`, backticks (`) in the body text are interpreted as command substitution by the shell. This causes errors like:
+```
+permission denied: .devcontainer/devcontainer.json
+command not found: 2025c-test
+```
+
+**Solution**: Always escape backticks with backslashes when using them in PR bodies:
+```bash
+# Wrong - will cause errors
+gh pr create --body "Updated `file.txt` to version `1.2.3`"
+
+# Correct - escaped backticks
+gh pr create --body "Updated \`file.txt\` to version \`1.2.3\`"
+```
