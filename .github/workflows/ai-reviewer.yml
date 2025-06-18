@@ -1,10 +1,11 @@
+---
 name: "Run ai-reviewer"
 
 permissions:
   pull-requests: write
   contents: read
 
-on:
+'on':
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:

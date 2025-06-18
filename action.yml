@@ -1,3 +1,4 @@
+---
 name: 'LaTeX Release Action'
 description: 'Build LaTeX document and create GitHub Release'
 
@@ -35,27 +36,27 @@ runs:
       run: |
         echo "::group::Preparing file list"
         echo "Input files: ${{ inputs.files }}"
-        
+
         # Convert comma-separated list to array and trim whitespace
         IFS=',' read -ra TEX_FILES <<< "${{ inputs.files }}"
         # Check file existence and build list of existing files only
         FILES_TO_CHECK=""
         PROCESSED_FILES=""
         SKIPPED_FILES=""
-        
+
         for file in "${TEX_FILES[@]}"; do
           file=$(echo $file | xargs)  # trim whitespace
           if [[ -z "$file" ]]; then
             echo "::warning::Empty file name found in input, skipping"
             continue
           fi
-          
+
           # Sanitize file name (remove potentially dangerous characters)
           if [[ ! "$file" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
             echo "::error::Invalid file name: $file (only alphanumeric, underscore, hyphen, and slash allowed)"
             exit 1
           fi
-          
+
           # Check if the .tex file exists
           if [[ -f "$file.tex" ]]; then
             FILES_TO_CHECK+="$file.tex,"
@@ -66,11 +67,11 @@ runs:
             echo "⚠ Skipping missing file: $file.tex"
           fi
         done
-        
+
         FILES_TO_CHECK=${FILES_TO_CHECK%,}  # remove trailing comma
         PROCESSED_FILES=${PROCESSED_FILES%,}  # remove trailing comma
         SKIPPED_FILES=${SKIPPED_FILES%,}  # remove trailing comma
-        
+
         if [[ -z "$FILES_TO_CHECK" ]]; then
           echo "::warning::No valid LaTeX files found to build. All specified files are missing:"
           if [[ -n "$SKIPPED_FILES" ]]; then
@@ -80,7 +81,7 @@ runs:
           echo "::endgroup::"
           exit 0
         fi
-        
+
         echo "Files to build: $FILES_TO_CHECK"
         if [[ -n "$SKIPPED_FILES" ]]; then
           echo "Skipped files: $SKIPPED_FILES"
@@ -104,16 +105,16 @@ runs:
         echo "::group::Building LaTeX files"
         echo "LaTeX options: ${{ inputs.latex_options }}"
         echo "Parallel build: ${{ inputs.parallel }}"
-        
+
         IFS=',' read -ra TEX_FILES <<< "${{ steps.prepare.outputs.processed_files }}"
         BUILD_FAILED=false
-        
+
         if [[ "${{ inputs.parallel }}" == "true" ]]; then
           echo "Building files in parallel..."
           pids=()
           temp_dir=$(mktemp -d)
           echo "Using temporary directory: $temp_dir"
-          
+
           for file in "${TEX_FILES[@]}"; do
             file=$(echo $file | xargs)
             # Sanitize filename for use in temp file names
@@ -131,21 +132,21 @@ runs:
             ) &
             pids+=($!)
           done
-          
+
           # Wait for all builds to complete and collect results
           overall_success=true
           for i in "${!pids[@]}"; do
             pid=${pids[$i]}
             file=$(echo "${TEX_FILES[$i]}" | xargs)
             safe_name=$(echo "$file" | tr '/' '_')
-            
+
             if wait $pid; then
               echo "Process for $file.tex completed successfully"
             else
               echo "Process for $file.tex failed"
               overall_success=false
             fi
-            
+
             # Double-check with exit code file
             if [[ -f "$temp_dir/exit_$safe_name" ]]; then
               exit_code=$(cat "$temp_dir/exit_$safe_name")
@@ -158,10 +159,10 @@ runs:
               overall_success=false
             fi
           done
-          
+
           # Cleanup temporary directory
           rm -rf "$temp_dir"
-          
+
           if [[ "$overall_success" != "true" ]]; then
             BUILD_FAILED=true
           fi
@@ -170,7 +171,7 @@ runs:
           for file in "${TEX_FILES[@]}"; do
             file=$(echo $file | xargs)
             echo "Building: $file.tex"
-            
+
             if ! latexmk ${{ inputs.latex_options }} "$file.tex"; then
               echo "::error::Failed to build $file.tex"
               echo "LaTeX build failed. Check the logs above for details."
@@ -181,12 +182,12 @@ runs:
             fi
           done
         fi
-        
+
         if [[ "$BUILD_FAILED" == "true" ]]; then
           echo "::error::One or more LaTeX builds failed"
           exit 1
         fi
-        
+
         echo "::endgroup::"
 
     - name: Check PDF files and cleanup
@@ -198,7 +199,7 @@ runs:
         IFS=',' read -ra TEX_FILES <<< "${{ steps.prepare.outputs.processed_files }}"
         ALL_EXIST=true
         PDF_FILES=""
-        
+
         for file in "${TEX_FILES[@]}"; do
           file=$(echo $file | xargs)
           if [ ! -f "$file.pdf" ]; then
@@ -209,11 +210,11 @@ runs:
             PDF_FILES+="$file.pdf,"
           fi
         done
-        
+
         PDF_FILES=${PDF_FILES%,}
         echo "all_exist=$ALL_EXIST" >> $GITHUB_OUTPUT
         echo "pdf_files=$PDF_FILES" >> $GITHUB_OUTPUT
-        
+
         # Cleanup intermediate files if requested
         if [[ "${{ inputs.cleanup }}" == "true" ]]; then
           echo "Cleaning up intermediate files..."
@@ -232,7 +233,7 @@ runs:
         else
           echo "Skipping cleanup (cleanup=false)"
         fi
-        
+
         echo "::endgroup::"
 
     - name: Create a release
@@ -248,17 +249,17 @@ runs:
         make_latest: false
         body: |
           ## 📄 LaTeX Build Results
-          
+
           This release contains compiled PDF files from the following LaTeX sources:
-          
+
           **Built files:**
           ${{ steps.prepare.outputs.processed_files }}
-          
+
           **Build options:** `${{ inputs.latex_options }}`
           **Parallel build:** ${{ inputs.parallel }}
           **Cleanup performed:** ${{ inputs.cleanup }}
-          
+
           ---
-          
+
           🤖 *This release was automatically generated by [LaTeX Release Action](https://github.com/smkwlab/latex-release-action)*
 
