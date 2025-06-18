@@ -1,10 +1,11 @@
+---
 name: Test LaTeX Release Action
 
-on:
+'on':
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -16,7 +17,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Test single file build
         uses: ./
         with:
@@ -32,7 +33,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Test multiple files build
         uses: ./
         with:
@@ -50,7 +51,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Test sequential build
         uses: ./
         with:
@@ -68,7 +69,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Test with non-existent file
         uses: ./
         with:
