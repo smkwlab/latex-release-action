@@ -27,4 +27,3 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           LANGUAGE: "Japanese"
           EXCLUDE_PATHS: "_build/**,deps/**,cover/**,log/**"
-          USE_SINGLE_COMMENT_REVIEW: "true"
