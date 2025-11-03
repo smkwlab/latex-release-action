@@ -25,6 +25,28 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Fix permissions for GitHub Actions temp directories
+      shell: bash
+      run: |
+        # Check if we can write to the temp directory, fix permissions if needed
+        # This prevents EACCES errors when running in containers with non-root users
+        TEMP_DIR="/__w/_temp"
+        if [ -d "$TEMP_DIR" ]; then
+          TEST_FILE="$TEMP_DIR/.write_test_$$"
+          if ! touch "$TEST_FILE" 2>/dev/null; then
+            echo "Write permission issue detected, attempting to fix..."
+            chmod -R 777 "$TEMP_DIR" 2>/dev/null || sudo chmod -R 777 "$TEMP_DIR" 2>/dev/null || true
+            if touch "$TEST_FILE" 2>/dev/null; then
+              echo "✓ Permissions fixed successfully"
+              rm -f "$TEST_FILE"
+            else
+              echo "::warning::Could not fix permissions, but will attempt to continue"
+            fi
+          else
+            rm -f "$TEST_FILE"
+          fi
+        fi
+
     - name: Checkout git repo
       uses: actions/checkout@v4
       with:
