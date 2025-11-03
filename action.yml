@@ -32,21 +32,44 @@ runs:
         # This prevents EACCES errors when running in containers with non-root users
         # Use RUNNER_TEMP if available, otherwise fall back to standard path
         TEMP_DIR="${RUNNER_TEMP:-/__w/_temp}"
+        echo "Checking permissions for: $TEMP_DIR"
+        echo "Current user: $(whoami) (UID: $(id -u), GID: $(id -g))"
+
         if [ -d "$TEMP_DIR" ]; then
+          echo "Directory exists. Permissions: $(ls -ld "$TEMP_DIR" 2>/dev/null || echo 'cannot read')"
           TEST_FILE="$TEMP_DIR/.write_test_$$"
+
           if ! touch "$TEST_FILE" 2>/dev/null; then
             echo "Write permission issue detected, attempting to fix..."
-            # Use chmod a+w (add write for all) instead of 777 for security
-            chmod -R a+w "$TEMP_DIR" 2>/dev/null || sudo chmod -R a+w "$TEMP_DIR" 2>/dev/null || true
+
+            # Try multiple approaches in order of preference
+            # 1. Change ownership to current user
+            if sudo chown -R $(id -u):$(id -g) "$TEMP_DIR" 2>/dev/null; then
+              echo "Changed ownership to current user"
+            # 2. Add write permission for all users
+            elif sudo chmod -R a+w "$TEMP_DIR" 2>/dev/null; then
+              echo "Added write permission for all users"
+            # 3. Try without sudo as fallback
+            elif chmod -R a+w "$TEMP_DIR" 2>/dev/null; then
+              echo "Added write permission (no sudo)"
+            else
+              echo "All permission fix attempts failed"
+            fi
+
+            # Verify the fix worked
             if touch "$TEST_FILE" 2>/dev/null; then
               echo "Permissions fixed successfully"
               rm -f "$TEST_FILE"
             else
-              echo "::warning::Could not fix permissions, but will attempt to continue"
+              echo "::error::Could not fix temp directory permissions. Container may need 'options: --user root'"
+              exit 1
             fi
           else
+            echo "Write permissions OK"
             rm -f "$TEST_FILE"
           fi
+        else
+          echo "::warning::Temp directory does not exist: $TEMP_DIR"
         fi
 
     - name: Checkout git repo
