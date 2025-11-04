@@ -38,7 +38,7 @@ runs:
             echo "Write permission issue detected, attempting to fix..."
             # Change ownership to current user to allow creating subdirectories
             # This is necessary for actions/checkout which creates _runner_file_commands/
-            sudo chown -R $(id -u):$(id -g) "$TEMP_DIR" 2>/dev/null || true
+            sudo chown -R "$(id -u):$(id -g)" "$TEMP_DIR" 2>/dev/null || true
             # Also set write permissions as fallback
             sudo chmod -R a+w "$TEMP_DIR" 2>/dev/null || true
             if touch "$TEST_FILE" 2>/dev/null; then
