@@ -36,8 +36,11 @@ runs:
           TEST_FILE="$TEMP_DIR/.write_test_$$"
           if ! touch "$TEST_FILE" 2>/dev/null; then
             echo "Write permission issue detected, attempting to fix..."
-            # Use chmod a+w (add write for all) instead of 777 for security
-            chmod -R a+w "$TEMP_DIR" 2>/dev/null || sudo chmod -R a+w "$TEMP_DIR" 2>/dev/null || true
+            # Change ownership to current user to allow creating subdirectories
+            # This is necessary for actions/checkout which creates _runner_file_commands/
+            sudo chown -R "$(id -u):$(id -g)" "$TEMP_DIR" 2>/dev/null || true
+            # Also set write permissions as fallback
+            sudo chmod -R a+w "$TEMP_DIR" 2>/dev/null || true
             if touch "$TEST_FILE" 2>/dev/null; then
               echo "Permissions fixed successfully"
               rm -f "$TEST_FILE"
