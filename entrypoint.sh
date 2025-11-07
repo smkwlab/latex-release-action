@@ -36,6 +36,8 @@ for file in "${TEX_FILES[@]}"; do
   fi
 
   # Sanitize file name (remove potentially dangerous characters)
+  # Note: Dot (.) is allowed for file extensions and paths like "dir.name/file"
+  # Hyphen is placed at the end of character class to avoid range interpretation
   if [[ ! "$file" =~ ^[a-zA-Z0-9_./-]+$ ]]; then
     echo "::error::Invalid file name: $file (only alphanumeric, underscore, hyphen, dot, and slash allowed)"
     exit 1
@@ -91,6 +93,8 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
     safe_name=$(echo "$file" | tr '/' '_')
     echo "Starting build for: $file.tex"
     (
+      # Note: exit 1 here only exits the subshell, not the main script
+      # The main script waits for all processes and checks exit codes below
       if latexmk "${INPUT_LATEX_OPTIONS}" "$file.tex" 2>&1; then
         echo "0" > "$TEMP_DIR/exit_$safe_name"
         echo "✓ Successfully built $file.tex"
@@ -268,17 +272,21 @@ if [[ "${IS_PRERELEASE}" == "true" ]]; then
     --notes "${RELEASE_BODY}" \
     --prerelease \
     "${PDF_ARRAY[@]}" || {
-      echo "::warning::Failed to create release, but PDFs were built successfully"
-      echo "::warning::This may happen if the release already exists or if there are permission issues"
+      echo "::error::Failed to create release"
+      echo "::error::This may happen if the release already exists or if there are permission issues"
+      exit 1
     }
 else
-  # For non-prerelease, omit --latest flag (default behavior marks as non-latest)
+  # For non-prerelease, omit --prerelease flag
+  # Note: By default, gh CLI marks releases as latest unless --prerelease is specified
+  # We don't specify --latest to allow GitHub's automatic latest detection
   gh release create "${TAG_NAME}" \
     --title "${RELEASE_NAME}" \
     --notes "${RELEASE_BODY}" \
     "${PDF_ARRAY[@]}" || {
-      echo "::warning::Failed to create release, but PDFs were built successfully"
-      echo "::warning::This may happen if the release already exists or if there are permission issues"
+      echo "::error::Failed to create release"
+      echo "::error::This may happen if the release already exists or if there are permission issues"
+      exit 1
     }
 fi
 
