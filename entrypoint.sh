@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Fix git safe.directory issue in Docker container
+git config --global --add safe.directory /github/workspace
+
 # Cleanup function for temporary directories
 cleanup_temp_dir() {
   if [[ -n "${TEMP_DIR}" ]] && [[ -d "${TEMP_DIR}" ]]; then
