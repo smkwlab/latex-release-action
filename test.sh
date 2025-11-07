@@ -256,7 +256,7 @@ test_docker() {
     # Try different containers in order of preference
     # Note: Some containers may not have ARM64 images
     local CONTAINERS=(
-        "ghcr.io/smkwlab/texlive-ja-textlint:2025b-debian"
+        "ghcr.io/smkwlab/texlive-ja-textlint:2025i"
         "texlive/texlive:latest"
     )
     
