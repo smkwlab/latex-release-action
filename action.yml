@@ -33,11 +33,4 @@ outputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
-  env:
-    INPUT_FILES: ${{ inputs.files }}
-    INPUT_LATEX_OPTIONS: ${{ inputs.latex_options }}
-    INPUT_RELEASE_NAME: ${{ inputs.release_name }}
-    INPUT_CLEANUP: ${{ inputs.cleanup }}
-    INPUT_PARALLEL: ${{ inputs.parallel }}
-    GH_TOKEN: ${{ github.token }}
 
