@@ -84,7 +84,10 @@ BUILD_FAILED=false
 if [[ "${INPUT_PARALLEL}" == "true" ]]; then
   echo "Building files in parallel..."
   pids=()
-  TEMP_DIR=$(mktemp -d)
+  TEMP_DIR=$(mktemp -d) || {
+    echo "::error::Failed to create temporary directory"
+    exit 1
+  }
   echo "Using temporary directory: $TEMP_DIR"
 
   for file in "${TEX_FILES[@]}"; do
@@ -121,7 +124,9 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
       overall_success=false
     fi
 
-    # Double-check with exit code file
+    # Double-check with exit code file for redundancy
+    # Note: This warning appears when the subshell exits unexpectedly before writing the file
+    # The `wait $pid` above already caught the failure, so this is a safety check
     if [[ -f "$TEMP_DIR/exit_$safe_name" ]]; then
       exit_code=$(cat "$TEMP_DIR/exit_$safe_name")
       if [[ "$exit_code" != "0" ]]; then
