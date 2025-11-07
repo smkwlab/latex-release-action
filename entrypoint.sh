@@ -12,7 +12,6 @@ cleanup_temp_dir() {
 trap cleanup_temp_dir EXIT
 
 # Get inputs from environment variables
-INPUT_FILES="${INPUT_FILES}"
 INPUT_LATEX_OPTIONS="${INPUT_LATEX_OPTIONS:--interaction=nonstopmode}"
 INPUT_CLEANUP="${INPUT_CLEANUP:-true}"
 INPUT_PARALLEL="${INPUT_PARALLEL:-false}"
@@ -98,7 +97,7 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
     (
       # Note: exit 1 here only exits the subshell, not the main script
       # The main script waits for all processes and checks exit codes below
-      if latexmk "${INPUT_LATEX_OPTIONS}" "$file.tex" 2>&1; then
+      if latexmk ${INPUT_LATEX_OPTIONS} "$file.tex" 2>&1; then
         echo "0" > "$TEMP_DIR/exit_$safe_name"
         echo "✓ Successfully built $file.tex"
       else
@@ -150,7 +149,7 @@ else
     file=$(echo $file | xargs)
     echo "Building: $file.tex"
 
-    if ! latexmk "${INPUT_LATEX_OPTIONS}" "$file.tex"; then
+    if ! latexmk ${INPUT_LATEX_OPTIONS} "$file.tex"; then
       echo "::error::Failed to build $file.tex"
       echo "LaTeX build failed. Check the logs above for details."
       BUILD_FAILED=true
@@ -209,9 +208,9 @@ fi
 echo "::endgroup::"
 
 # Set outputs
-echo "pdf_files=${PDF_FILES}" >> $GITHUB_OUTPUT
-echo "all_exist=${ALL_EXIST}" >> $GITHUB_OUTPUT
-echo "processed_files=${PROCESSED_FILES}" >> $GITHUB_OUTPUT
+echo "pdf_files=${PDF_FILES}" >> "$GITHUB_OUTPUT"
+echo "all_exist=${ALL_EXIST}" >> "$GITHUB_OUTPUT"
+echo "processed_files=${PROCESSED_FILES}" >> "$GITHUB_OUTPUT"
 
 if [[ "$ALL_EXIST" != "true" ]]; then
   exit 1
