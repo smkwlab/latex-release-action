@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Cleanup function for temporary directories
+cleanup_temp_dir() {
+  if [[ -n "${TEMP_DIR}" ]] && [[ -d "${TEMP_DIR}" ]]; then
+    rm -rf "${TEMP_DIR}"
+  fi
+}
+
+# Set trap to cleanup on exit
+trap cleanup_temp_dir EXIT
+
 # Get inputs from environment variables
 INPUT_FILES="${INPUT_FILES}"
 INPUT_LATEX_OPTIONS="${INPUT_LATEX_OPTIONS:--interaction=nonstopmode}"
@@ -26,8 +36,8 @@ for file in "${TEX_FILES[@]}"; do
   fi
 
   # Sanitize file name (remove potentially dangerous characters)
-  if [[ ! "$file" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
-    echo "::error::Invalid file name: $file (only alphanumeric, underscore, hyphen, and slash allowed)"
+  if [[ ! "$file" =~ ^[a-zA-Z0-9_./-]+$ ]]; then
+    echo "::error::Invalid file name: $file (only alphanumeric, underscore, hyphen, dot, and slash allowed)"
     exit 1
   fi
 
@@ -72,8 +82,8 @@ BUILD_FAILED=false
 if [[ "${INPUT_PARALLEL}" == "true" ]]; then
   echo "Building files in parallel..."
   pids=()
-  temp_dir=$(mktemp -d)
-  echo "Using temporary directory: $temp_dir"
+  TEMP_DIR=$(mktemp -d)
+  echo "Using temporary directory: $TEMP_DIR"
 
   for file in "${TEX_FILES[@]}"; do
     file=$(echo $file | xargs)
@@ -81,11 +91,11 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
     safe_name=$(echo "$file" | tr '/' '_')
     echo "Starting build for: $file.tex"
     (
-      if latexmk ${INPUT_LATEX_OPTIONS} "$file.tex" 2>&1; then
-        echo "0" > "$temp_dir/exit_$safe_name"
+      if latexmk "${INPUT_LATEX_OPTIONS}" "$file.tex" 2>&1; then
+        echo "0" > "$TEMP_DIR/exit_$safe_name"
         echo "✓ Successfully built $file.tex"
       else
-        echo "1" > "$temp_dir/exit_$safe_name"
+        echo "1" > "$TEMP_DIR/exit_$safe_name"
         echo "::error::Failed to build $file.tex"
         exit 1
       fi
@@ -108,8 +118,8 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
     fi
 
     # Double-check with exit code file
-    if [[ -f "$temp_dir/exit_$safe_name" ]]; then
-      exit_code=$(cat "$temp_dir/exit_$safe_name")
+    if [[ -f "$TEMP_DIR/exit_$safe_name" ]]; then
+      exit_code=$(cat "$TEMP_DIR/exit_$safe_name")
       if [[ "$exit_code" != "0" ]]; then
         echo "::error::Build failed for $file.tex (exit code: $exit_code)"
         overall_success=false
@@ -120,8 +130,7 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
     fi
   done
 
-  # Cleanup temporary directory
-  rm -rf "$temp_dir"
+  # Cleanup temporary directory is handled by trap
 
   if [[ "$overall_success" != "true" ]]; then
     BUILD_FAILED=true
@@ -132,7 +141,7 @@ else
     file=$(echo $file | xargs)
     echo "Building: $file.tex"
 
-    if ! latexmk ${INPUT_LATEX_OPTIONS} "$file.tex"; then
+    if ! latexmk "${INPUT_LATEX_OPTIONS}" "$file.tex"; then
       echo "::error::Failed to build $file.tex"
       echo "LaTeX build failed. Check the logs above for details."
       BUILD_FAILED=true
@@ -263,10 +272,10 @@ if [[ "${IS_PRERELEASE}" == "true" ]]; then
       echo "::warning::This may happen if the release already exists or if there are permission issues"
     }
 else
+  # For non-prerelease, omit --latest flag (default behavior marks as non-latest)
   gh release create "${TAG_NAME}" \
     --title "${RELEASE_NAME}" \
     --notes "${RELEASE_BODY}" \
-    --latest=false \
     "${PDF_ARRAY[@]}" || {
       echo "::warning::Failed to create release, but PDFs were built successfully"
       echo "::warning::This may happen if the release already exists or if there are permission issues"
