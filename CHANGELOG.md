@@ -1,5 +1,11 @@
 # Changelog
 
+## [v3.1.0] - 2025-11-08
+
+### Changed
+- Release notes now use GitHub's auto-generated format with "What's Changed" and "Full Changelog" (#39)
+- Removed technical build details from release notes (Build options, Parallel build, Cleanup) (#39)
+
 ## [v3.0.4] - 2025-11-07
 
 ### Fixed
