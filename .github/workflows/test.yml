@@ -20,6 +20,8 @@ jobs:
 
       - name: Test single file build
         uses: ./
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           files: "test/sample"
           latex_options: "-pdf -interaction=nonstopmode"
@@ -36,6 +38,8 @@ jobs:
 
       - name: Test multiple files build
         uses: ./
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           files: "test/sample, test/document2"
           latex_options: "-pdf -interaction=nonstopmode"
@@ -54,6 +58,8 @@ jobs:
 
       - name: Test sequential build
         uses: ./
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           files: "test/sample, test/document2"
           latex_options: "-pdf -interaction=nonstopmode"
@@ -72,6 +78,8 @@ jobs:
 
       - name: Test with non-existent file
         uses: ./
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           files: "nonexistent"
           latex_options: "-pdf -interaction=nonstopmode"

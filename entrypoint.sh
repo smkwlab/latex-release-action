@@ -150,7 +150,7 @@ if [[ "${INPUT_PARALLEL}" == "true" ]]; then
     (
       # Note: exit 1 here only exits the subshell, not the main script
       # The main script waits for all processes and checks exit codes below
-      if latexmk ${INPUT_LATEX_OPTIONS} "$file.tex" 2>&1; then
+      if latexmk -cd ${INPUT_LATEX_OPTIONS} "$file.tex" 2>&1; then
         echo "0" > "$TEMP_DIR/exit_$safe_name"
         echo "✓ Successfully built $file.tex"
       else
@@ -202,7 +202,7 @@ else
     file=$(echo $file | xargs)
     echo "Building: $file.tex"
 
-    if ! latexmk ${INPUT_LATEX_OPTIONS} "$file.tex"; then
+    if ! latexmk -cd ${INPUT_LATEX_OPTIONS} "$file.tex"; then
       echo "::error::Failed to build $file.tex"
       echo "LaTeX build failed. Check the logs above for details."
       BUILD_FAILED=true
