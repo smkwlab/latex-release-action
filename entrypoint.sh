@@ -19,6 +19,39 @@ INPUT_LATEX_OPTIONS="${INPUT_LATEX_OPTIONS:--interaction=nonstopmode}"
 INPUT_CLEANUP="${INPUT_CLEANUP:-true}"
 INPUT_PARALLEL="${INPUT_PARALLEL:-false}"
 
+# Check if PR has .tex file changes (skip build if no .tex changes)
+if [[ -n "${GITHUB_HEAD_REF}" ]]; then
+  echo "::group::Checking for .tex changes in PR"
+  echo "PR source branch: ${GITHUB_HEAD_REF}"
+
+  # Get list of changed files in this PR
+  # Using gh pr view with the head branch to find the PR
+  CHANGED_FILES=$(gh pr view "${GITHUB_HEAD_REF}" --json files --jq '.files[].path' 2>/dev/null || echo "")
+
+  if [[ -z "$CHANGED_FILES" ]]; then
+    echo "::warning::Could not retrieve PR changed files. Proceeding with build."
+    echo "::endgroup::"
+  else
+    echo "Changed files in PR:"
+    echo "$CHANGED_FILES" | sed 's/^/  /'
+
+    # Check if any .tex files are in the changed files
+    TEX_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.tex$' || true)
+
+    if [[ -z "$TEX_CHANGES" ]]; then
+      echo ""
+      echo "::notice::No .tex files changed in this PR. Skipping build and release."
+      echo "::endgroup::"
+      exit 0
+    else
+      echo ""
+      echo "Found .tex changes:"
+      echo "$TEX_CHANGES" | sed 's/^/  /'
+    fi
+    echo "::endgroup::"
+  fi
+fi
+
 echo "::group::Preparing file list"
 echo "Input files: ${INPUT_FILES}"
 
