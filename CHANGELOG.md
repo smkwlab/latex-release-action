@@ -1,5 +1,15 @@
 # Changelog
 
+## [v3.2.0] - 2025-12-06
+
+### Fixed
+- Add `-cd` option to latexmk for proper subdirectory support (#47)
+- Add `--clobber` option for duplicate release handling (#49)
+
+### Changed
+- Bump actions/checkout from v4 to v5 (#43)
+- Add YAML validation CI workflow with yamllint and actionlint (#50)
+
 ## [v3.1.0] - 2025-11-08
 
 ### Changed
