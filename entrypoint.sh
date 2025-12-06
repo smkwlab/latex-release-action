@@ -311,8 +311,14 @@ echo "Checking for existing release with tag: ${TAG_NAME}"
 if gh release view "${TAG_NAME}" &>/dev/null; then
   echo "Deleting existing release: ${TAG_NAME}"
   gh release delete "${TAG_NAME}" --yes --cleanup-tag || {
-    echo "::warning::Failed to delete existing release, attempting to create anyway"
+    echo "::warning::Failed to delete existing release"
   }
+  # Explicitly delete the tag to avoid race condition with --cleanup-tag
+  # The GitHub API may not complete tag deletion before gh release create runs
+  echo "Ensuring tag is deleted: ${TAG_NAME}"
+  gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG_NAME}" 2>/dev/null || true
+  # Small delay to ensure API propagation
+  sleep 1
 fi
 
 # Create release using GitHub CLI with auto-generated notes
