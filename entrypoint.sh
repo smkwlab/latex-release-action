@@ -24,31 +24,48 @@ if [[ -n "${GITHUB_HEAD_REF}" ]]; then
   echo "::group::Checking for .tex changes in PR"
   echo "PR source branch: ${GITHUB_HEAD_REF}"
 
-  # Get list of changed files in this PR
-  # Using gh pr view with the head branch to find the PR
-  CHANGED_FILES=$(gh pr view "${GITHUB_HEAD_REF}" --json files --jq '.files[].path' 2>/dev/null || echo "")
+  # Set GitHub CLI authentication
+  export GH_TOKEN="${GITHUB_TOKEN:-$GH_TOKEN}"
 
-  if [[ -z "$CHANGED_FILES" ]]; then
-    echo "::warning::Could not retrieve PR changed files. Proceeding with build."
+  if [[ -z "$GH_TOKEN" ]]; then
+    echo "::warning::GITHUB_TOKEN not available. Cannot check PR changes. Proceeding with build."
     echo "::endgroup::"
   else
-    echo "Changed files in PR:"
-    echo "$CHANGED_FILES" | sed 's/^/  /'
-
-    # Check if any .tex files are in the changed files
-    TEX_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.tex$' || true)
-
-    if [[ -z "$TEX_CHANGES" ]]; then
-      echo ""
-      echo "::notice::No .tex files changed in this PR. Skipping build and release."
-      echo "::endgroup::"
-      exit 0
+    # Prefer PR number from GITHUB_REF, fallback to head branch if not in PR context
+    if [[ "${GITHUB_REF}" =~ refs/pull/([0-9]+)/merge ]]; then
+      PR_NUMBER="${BASH_REMATCH[1]}"
+      echo "PR number: ${PR_NUMBER}"
+      CHANGED_FILES=$(gh pr view "${PR_NUMBER}" --json files --jq '.files[].path' 2>/dev/null || echo "")
     else
-      echo ""
-      echo "Found .tex changes:"
-      echo "$TEX_CHANGES" | sed 's/^/  /'
+      CHANGED_FILES=$(gh pr view "${GITHUB_HEAD_REF}" --json files --jq '.files[].path' 2>/dev/null || echo "")
     fi
-    echo "::endgroup::"
+
+    if [[ -z "$CHANGED_FILES" ]]; then
+      echo "::warning::Could not retrieve PR changed files. Proceeding with build."
+      echo "::endgroup::"
+    else
+      echo "Changed files in PR:"
+      echo "$CHANGED_FILES" | sed 's/^/  /'
+
+      # Check if any .tex files are in the changed files
+      TEX_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.tex$' || true)
+
+      if [[ -z "$TEX_CHANGES" ]]; then
+        echo ""
+        echo "::notice::No .tex files changed in this PR. Skipping build and release."
+        echo "::endgroup::"
+        # Set empty outputs for workflows that depend on them
+        echo "pdf_files=" >> "$GITHUB_OUTPUT"
+        echo "all_exist=true" >> "$GITHUB_OUTPUT"
+        echo "processed_files=" >> "$GITHUB_OUTPUT"
+        exit 0
+      else
+        echo ""
+        echo "Found .tex changes:"
+        echo "$TEX_CHANGES" | sed 's/^/  /'
+      fi
+      echo "::endgroup::"
+    fi
   fi
 fi
 
