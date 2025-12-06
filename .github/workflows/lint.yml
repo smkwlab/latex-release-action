@@ -18,7 +18,7 @@ jobs:
         run: pip install yamllint
 
       - name: Run yamllint
-        run: yamllint -c .yamllint.yml .github/workflows/*.yml action.yml
+        run: yamllint -c .yamllint.yml .github/workflows/*.yml action.yml .yamllint.yml
 
       - name: Run actionlint
         uses: reviewdog/action-actionlint@v1

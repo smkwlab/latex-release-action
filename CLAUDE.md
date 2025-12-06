@@ -35,7 +35,7 @@ YAML files are automatically validated on every PR via the `lint.yml` workflow.
 
 ```bash
 # Validate all YAML files locally (syntax and style)
-yamllint -c .yamllint.yml .github/workflows/*.yml action.yml
+yamllint -c .yamllint.yml .github/workflows/*.yml action.yml .yamllint.yml
 
 # Validate GitHub Actions workflows (Actions-specific checks)
 actionlint .github/workflows/*.yml
