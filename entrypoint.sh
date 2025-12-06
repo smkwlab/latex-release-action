@@ -312,6 +312,7 @@ if [[ "${IS_PRERELEASE}" == "true" ]]; then
     --title "${RELEASE_NAME}" \
     --generate-notes \
     --prerelease \
+    --clobber \
     "${PDF_ARRAY[@]}" || {
       echo "::error::Failed to create release"
       echo "::error::This may happen if the release already exists or if there are permission issues"
@@ -324,6 +325,7 @@ else
   gh release create "${TAG_NAME}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
+    --clobber \
     "${PDF_ARRAY[@]}" || {
       echo "::error::Failed to create release"
       echo "::error::This may happen if the release already exists or if there are permission issues"
