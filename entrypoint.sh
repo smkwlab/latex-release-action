@@ -306,16 +306,24 @@ echo "Is prerelease: ${IS_PRERELEASE}"
 # Convert PDF_FILES to array
 IFS=',' read -ra PDF_ARRAY <<< "${PDF_FILES}"
 
+# Delete existing release if exists (to allow re-creation with updated assets)
+echo "Checking for existing release with tag: ${TAG_NAME}"
+if gh release view "${TAG_NAME}" &>/dev/null; then
+  echo "Deleting existing release: ${TAG_NAME}"
+  gh release delete "${TAG_NAME}" --yes --cleanup-tag || {
+    echo "::warning::Failed to delete existing release, attempting to create anyway"
+  }
+fi
+
 # Create release using GitHub CLI with auto-generated notes
 if [[ "${IS_PRERELEASE}" == "true" ]]; then
   gh release create "${TAG_NAME}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
     --prerelease \
-    --clobber \
     "${PDF_ARRAY[@]}" || {
       echo "::error::Failed to create release"
-      echo "::error::This may happen if the release already exists or if there are permission issues"
+      echo "::error::This may happen if there are permission issues"
       exit 1
     }
 else
@@ -325,10 +333,9 @@ else
   gh release create "${TAG_NAME}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
-    --clobber \
     "${PDF_ARRAY[@]}" || {
       echo "::error::Failed to create release"
-      echo "::error::This may happen if the release already exists or if there are permission issues"
+      echo "::error::This may happen if there are permission issues"
       exit 1
     }
 fi
