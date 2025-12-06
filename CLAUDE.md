@@ -30,6 +30,21 @@ latexmk -pdf test/document2.tex
 latexmk -C test/sample.tex
 ```
 
+### YAML Validation
+YAML files are automatically validated on every PR via the `lint.yml` workflow.
+
+```bash
+# Validate all YAML files locally (syntax and style)
+yamllint -c .yamllint.yml .github/workflows/*.yml action.yml
+
+# Validate GitHub Actions workflows (Actions-specific checks)
+actionlint .github/workflows/*.yml
+
+# Install tools (if not installed)
+pip install yamllint
+brew install actionlint  # macOS
+```
+
 ## Architecture
 
 ### Core Components
