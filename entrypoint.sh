@@ -31,7 +31,7 @@ if [[ -n "${GITHUB_HEAD_REF}" ]]; then
     echo "::warning::GITHUB_TOKEN not available. Cannot check PR changes. Proceeding with build."
     echo "::endgroup::"
   else
-    # Prefer PR number from GITHUB_REF, fallback to head branch if not in PR context
+    # Extract PR number from GITHUB_REF if in merge context, otherwise use head branch
     if [[ "${GITHUB_REF}" =~ refs/pull/([0-9]+)/merge ]]; then
       PR_NUMBER="${BASH_REMATCH[1]}"
       echo "PR number: ${PR_NUMBER}"
@@ -48,9 +48,9 @@ if [[ -n "${GITHUB_HEAD_REF}" ]]; then
       echo "$CHANGED_FILES" | sed 's/^/  /'
 
       # Check if any .tex files are in the changed files
-      TEX_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.tex$' || true)
+      CHANGED_TEX_FILES=$(echo "$CHANGED_FILES" | grep -E '\.tex$' || true)
 
-      if [[ -z "$TEX_CHANGES" ]]; then
+      if [[ -z "$CHANGED_TEX_FILES" ]]; then
         echo ""
         echo "::notice::No .tex files changed in this PR. Skipping build and release."
         echo "::endgroup::"
@@ -62,7 +62,7 @@ if [[ -n "${GITHUB_HEAD_REF}" ]]; then
       else
         echo ""
         echo "Found .tex changes:"
-        echo "$TEX_CHANGES" | sed 's/^/  /'
+        echo "$CHANGED_TEX_FILES" | sed 's/^/  /'
       fi
       echo "::endgroup::"
     fi
