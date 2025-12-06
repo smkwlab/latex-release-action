@@ -19,6 +19,56 @@ INPUT_LATEX_OPTIONS="${INPUT_LATEX_OPTIONS:--interaction=nonstopmode}"
 INPUT_CLEANUP="${INPUT_CLEANUP:-true}"
 INPUT_PARALLEL="${INPUT_PARALLEL:-false}"
 
+# Check if PR has .tex file changes (skip build if no .tex changes)
+if [[ -n "${GITHUB_HEAD_REF}" ]]; then
+  echo "::group::Checking for .tex changes in PR"
+  echo "PR source branch: ${GITHUB_HEAD_REF}"
+
+  # Set GitHub CLI authentication
+  export GH_TOKEN="${GITHUB_TOKEN:-$GH_TOKEN}"
+
+  if [[ -z "$GH_TOKEN" ]]; then
+    echo "::warning::GITHUB_TOKEN not available. Cannot check PR changes. Proceeding with build."
+    echo "::endgroup::"
+  else
+    # Extract PR number from GITHUB_REF if in merge context, otherwise use head branch
+    if [[ "${GITHUB_REF}" =~ refs/pull/([0-9]+)/merge ]]; then
+      PR_NUMBER="${BASH_REMATCH[1]}"
+      echo "PR number: ${PR_NUMBER}"
+      CHANGED_FILES=$(gh pr view "${PR_NUMBER}" --json files --jq '.files[].path' 2>/dev/null || echo "")
+    else
+      CHANGED_FILES=$(gh pr view "${GITHUB_HEAD_REF}" --json files --jq '.files[].path' 2>/dev/null || echo "")
+    fi
+
+    if [[ -z "$CHANGED_FILES" ]]; then
+      echo "::warning::Could not retrieve PR changed files. Proceeding with build."
+      echo "::endgroup::"
+    else
+      echo "Changed files in PR:"
+      echo "$CHANGED_FILES" | sed 's/^/  /'
+
+      # Check if any .tex files are in the changed files
+      CHANGED_TEX_FILES=$(echo "$CHANGED_FILES" | grep -E '\.tex$' || true)
+
+      if [[ -z "$CHANGED_TEX_FILES" ]]; then
+        echo ""
+        echo "::notice::No .tex files changed in this PR. Skipping build and release."
+        echo "::endgroup::"
+        # Set empty outputs for workflows that depend on them
+        echo "pdf_files=" >> "$GITHUB_OUTPUT"
+        echo "all_exist=true" >> "$GITHUB_OUTPUT"
+        echo "processed_files=" >> "$GITHUB_OUTPUT"
+        exit 0
+      else
+        echo ""
+        echo "Found .tex changes:"
+        echo "$CHANGED_TEX_FILES" | sed 's/^/  /'
+      fi
+      echo "::endgroup::"
+    fi
+  fi
+fi
+
 echo "::group::Preparing file list"
 echo "Input files: ${INPUT_FILES}"
 
