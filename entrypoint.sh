@@ -269,6 +269,13 @@ if [[ "$ALL_EXIST" != "true" ]]; then
   exit 1
 fi
 
+# Skip release creation if requested
+INPUT_SKIP_RELEASE="${INPUT_SKIP_RELEASE:-false}"
+if [[ "${INPUT_SKIP_RELEASE}" == "true" ]]; then
+  echo "::notice::Skipping release creation (skip_release=true)"
+  exit 0
+fi
+
 # Create a release if all PDFs exist
 echo "::group::Creating GitHub Release"
 
@@ -313,12 +320,6 @@ if gh release view "${TAG_NAME}" &>/dev/null; then
   gh release delete "${TAG_NAME}" --yes --cleanup-tag || {
     echo "::warning::Failed to delete existing release"
   }
-  # Explicitly delete the tag to avoid race condition with --cleanup-tag
-  # The GitHub API may not complete tag deletion before gh release create runs
-  echo "Ensuring tag is deleted: ${TAG_NAME}"
-  gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${TAG_NAME}" 2>/dev/null || true
-  # Small delay to ensure API propagation
-  sleep 1
 fi
 
 # Create release using GitHub CLI with auto-generated notes

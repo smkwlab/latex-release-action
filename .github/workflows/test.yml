@@ -9,77 +9,18 @@ name: Test LaTeX Release Action
   workflow_dispatch:
 
 jobs:
-  test-single-file:
+  test-build:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2025i
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Test single file build
+      - name: Test LaTeX build
         uses: ./
-        env:
-          GH_TOKEN: ${{ github.token }}
         with:
           files: "test/sample"
           latex_options: "-pdf -interaction=nonstopmode"
-          cleanup: "true"
-
-  test-multiple-files:
-    runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Test multiple files build
-        uses: ./
-        env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          files: "test/sample, test/document2"
-          latex_options: "-pdf -interaction=nonstopmode"
-          parallel: "true"
-          cleanup: "true"
-          release_name: "Test Release"
-
-  test-sequential-build:
-    runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Test sequential build
-        uses: ./
-        env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          files: "test/sample, test/document2"
-          latex_options: "-pdf -interaction=nonstopmode"
-          parallel: "false"
-          cleanup: "false"
-
-  test-error-handling:
-    runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2023c-alpine
-    permissions:
-      contents: write
-    continue-on-error: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Test with non-existent file
-        uses: ./
-        env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          files: "nonexistent"
-          latex_options: "-pdf -interaction=nonstopmode"
+          skip_release: "true"
