@@ -1,7 +1,11 @@
-FROM ghcr.io/smkwlab/texlive-ja-textlint:2025i
+FROM ghcr.io/smkwlab/texlive-ja-textlint:2026a
+
+# Keep this base image tag in sync with latex-environment's devcontainer
+# (.devcontainer/devcontainer.json). Renovate (shared smkwlab/.github:latex
+# preset) tracks new texlive-ja-textlint releases.
 
 # Install GitHub CLI
-# Note: On GitHub Actions (amd64), texlive-ja-textlint:2025i uses Alpine Linux base
+# Note: On GitHub Actions (amd64), texlive-ja-textlint:2026a uses Alpine Linux base
 # Alpine package cleanup is omitted because:
 # - This container is ephemeral (created and destroyed per GitHub Actions job)
 # - Cleanup only affects image size, not runtime performance
