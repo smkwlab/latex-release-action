@@ -37,12 +37,12 @@ on:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026a
     permissions:
       contents: write  # リリース作成に必要
     steps:
       - name: Build and Release LaTeX
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "document"  # document.texをビルド
 ```
@@ -61,12 +61,12 @@ on:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026a
     permissions:
       contents: write
     steps:
       - name: Build Multiple LaTeX Files
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "paper, appendix, presentation"
           parallel: "true"                              # 並列ビルドを有効化
@@ -98,12 +98,12 @@ on:
 jobs:
   build-paper:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026a
     permissions:
       contents: write
     steps:
       - name: Build Research Paper
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "paper/main, appendix/supplementary"
           parallel: "true"
@@ -121,12 +121,12 @@ on:
 jobs:
   build-documents:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026a
     permissions:
       contents: write
     steps:
       - name: Build All Documents
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "thesis, slides, poster, abstract"
           parallel: "true"
@@ -143,12 +143,12 @@ on:
 jobs:
   build-reports:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026a
     permissions:
       contents: write
     steps:
       - name: Build with Dependencies
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "main-report, summary-report"
           parallel: "false"  # 逐次ビルド
@@ -229,11 +229,11 @@ permissions:
 jobs:
   build-latex:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025b  # 推奨
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026a  # 推奨
     permissions:
       contents: write
     steps:
-      - uses: smkwlab/latex-release-action@v2
+      - uses: smkwlab/latex-release-action@v3
         with:
           files: "document"
 ```

@@ -40,7 +40,7 @@ jobs:
       contents: write  # Required for creating releases
     steps:
       - name: Build and Release LaTeX
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "document"  # Build document.tex
 ```
@@ -64,7 +64,7 @@ jobs:
       contents: write
     steps:
       - name: Build Multiple LaTeX Files
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "paper, appendix, presentation"
           parallel: "true"                              # Enable parallel builds
@@ -101,7 +101,7 @@ jobs:
       contents: write
     steps:
       - name: Build Research Paper
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "paper/main, appendix/supplementary"
           parallel: "true"
@@ -124,7 +124,7 @@ jobs:
       contents: write
     steps:
       - name: Build All Documents
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "thesis, slides, poster, abstract"
           parallel: "true"
@@ -146,7 +146,7 @@ jobs:
       contents: write
     steps:
       - name: Build with Dependencies
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "main-report, summary-report"
           parallel: "false"  # Build sequentially
@@ -231,7 +231,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: smkwlab/latex-release-action@v2
+      - uses: smkwlab/latex-release-action@v3
         with:
           files: "document"
 ```
