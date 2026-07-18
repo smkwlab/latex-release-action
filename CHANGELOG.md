@@ -1,5 +1,19 @@
 # Changelog
 
+## [v3.3.0] - 2026-06-03
+
+### Added
+- Add `skip_release` option to build PDFs without creating a release (#55)
+- Add Renovate configuration for dependency management (#58)
+
+### Changed
+- Migrate Renovate preset from config:base to config:recommended (#60)
+- Use shared Renovate preset (github>smkwlab/.github:latex#v1) (#61)
+- Simplify test suite (#55)
+
+### Fixed
+- Fix ai-reviewer workflow (#54)
+
 ## [v3.2.0] - 2025-12-06
 
 ### Fixed

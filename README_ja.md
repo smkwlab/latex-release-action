@@ -42,7 +42,7 @@ jobs:
       contents: write  # リリース作成に必要
     steps:
       - name: Build and Release LaTeX
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "document"  # document.texをビルド
 ```
@@ -66,7 +66,7 @@ jobs:
       contents: write
     steps:
       - name: Build Multiple LaTeX Files
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "paper, appendix, presentation"
           parallel: "true"                              # 並列ビルドを有効化
@@ -103,7 +103,7 @@ jobs:
       contents: write
     steps:
       - name: Build Research Paper
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "paper/main, appendix/supplementary"
           parallel: "true"
@@ -126,7 +126,7 @@ jobs:
       contents: write
     steps:
       - name: Build All Documents
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "thesis, slides, poster, abstract"
           parallel: "true"
@@ -148,7 +148,7 @@ jobs:
       contents: write
     steps:
       - name: Build with Dependencies
-        uses: smkwlab/latex-release-action@v2
+        uses: smkwlab/latex-release-action@v3
         with:
           files: "main-report, summary-report"
           parallel: "false"  # 逐次ビルド
@@ -233,7 +233,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: smkwlab/latex-release-action@v2
+      - uses: smkwlab/latex-release-action@v3
         with:
           files: "document"
 ```
