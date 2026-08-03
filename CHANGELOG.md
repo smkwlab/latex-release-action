@@ -1,5 +1,13 @@
 # Changelog
 
+## [v3.4.0] - 2026-08-04
+
+### Changed
+- Update base image to texlive-ja-textlint:2026a (#65)
+- Migrate code review to the org-standard ai-code-review workflow (#62)
+- Re-run AI review on push (#63)
+- Update usage examples to `@v3` in the READMEs (#66)
+
 ## [v3.3.0] - 2026-06-03
 
 ### Added
