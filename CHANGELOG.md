@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.0] - 2026-08-04
+
+### Changed
+- Update base image to texlive-ja-textlint:2026d (#68)
+
 ## [v3.4.0] - 2026-08-04
 
 ### Changed
