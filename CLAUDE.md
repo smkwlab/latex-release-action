@@ -97,7 +97,7 @@ brew install actionlint  # macOS
 5. Test both sequential and parallel builds
 
 ## Container Usage
-Recommended container: `ghcr.io/smkwlab/texlive-ja-textlint:2026a`
+Recommended container: `ghcr.io/smkwlab/texlive-ja-textlint:2026d`
 - Full TeX Live installation
 - Japanese language support
 - Pre-built for performance
