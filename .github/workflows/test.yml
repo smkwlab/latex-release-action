@@ -11,7 +11,7 @@ name: Test LaTeX Release Action
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2025i
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026d
     permissions:
       contents: read
     steps:
