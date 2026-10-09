@@ -11,12 +11,12 @@ name: Test LaTeX Release Action
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    container: ghcr.io/smkwlab/texlive-ja-textlint:2026e
+    container: ghcr.io/smkwlab/texlive-ja-textlint:2026e@sha256:e2d935e5042b599b5359121459ecf232540a982b13d56429e4da2b663dffc550
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Test LaTeX build
         uses: ./
