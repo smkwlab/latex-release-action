@@ -1,4 +1,4 @@
-FROM ghcr.io/smkwlab/texlive-ja-textlint:2026e
+FROM ghcr.io/smkwlab/texlive-ja-textlint:2026e@sha256:e2d935e5042b599b5359121459ecf232540a982b13d56429e4da2b663dffc550
 
 # Keep this base image tag in sync with latex-environment's devcontainer
 # (.devcontainer/devcontainer.json). Renovate (shared smkwlab/.github:latex

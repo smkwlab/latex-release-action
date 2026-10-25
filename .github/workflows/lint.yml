@@ -21,6 +21,6 @@ jobs:
         run: yamllint -c .yamllint.yml .github/workflows/*.yml action.yml .yamllint.yml
 
       - name: Run actionlint
-        uses: reviewdog/action-actionlint@v1
+        uses: reviewdog/action-actionlint@48e36f54d8da326b83ab061aee2cc5e01b5ca46f # v1
         with:
           fail_level: error
