@@ -1,5 +1,12 @@
 # Changelog
 
+## [v3.6.0] - 2026-10-31
+
+### Changed
+- Update base image to texlive-ja-textlint:2026e and pin it by digest (#70, #71)
+- Bump actions/checkout to v7 (#72)
+- Update reviewdog/action-actionlint digest (#73, #74)
+
 ## [v3.5.0] - 2026-08-04
 
 ### Changed
