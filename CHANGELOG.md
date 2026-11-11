@@ -1,5 +1,21 @@
 # Changelog
 
+## [v3.7.0] - 2026-11-12
+
+### Added
+- Run test.sh's dependency-free sections in CI and let them decide its exit status (#78)
+
+### Changed
+- Install jq in the image to read the event payload (#78)
+- Document where the release tag lands, and correct the tag-push bullet in both READMEs (#78)
+- Update reviewdog/action-actionlint digest (#76)
+
+### Removed
+- Drop the PR .tex-change check: it never ran without pull-requests: read, and would have skipped builds when only a figure changed (#80, #81)
+
+### Fixed
+- Point the prerelease tag at the commit that was built, read from the event payload (#77, #78)
+
 ## [v3.6.0] - 2026-10-31
 
 ### Changed
