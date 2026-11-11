@@ -196,6 +196,110 @@ test_missing_files() {
     return 0
 }
 
+# Method 1.6: Test which commit the release tag points at (#77)
+test_release_target() {
+    print_header "Release Target Test (No Dependencies)"
+    print_status "INFO" "Testing which commit each context tags..."
+
+    # Run the real decision block out of entrypoint.sh rather than a copy of
+    # it, with gh replaced. #77 was exactly a mismatch between what the script
+    # does and where the release ends up pointing, so a copy here would be
+    # able to pass while the shipped script is wrong.
+    local block
+    block=$(sed -n '/^# --- BEGIN release-target-block ---$/,/^# --- END release-target-block ---$/p' \
+        entrypoint.sh | sed '1d;$d')
+
+    if [[ -z "$block" ]]; then
+        print_status "ERROR" \
+            "Could not extract the release target block from entrypoint.sh (its BEGIN/END markers may have changed)"
+        return 1
+    fi
+
+    # The block reads the event payload with jq, and so does the real action
+    # (the Dockerfile installs it). Run the real filter rather than a stub.
+    if ! command -v jq > /dev/null 2>&1; then
+        print_status "ERROR" "jq is required to run this test (the action uses it to read the event payload)"
+        return 1
+    fi
+
+    local script payload no_pr
+    script=$(mktemp)
+    payload=$(mktemp)
+    no_pr=$(mktemp)
+    echo '{"pull_request": {"head": {"sha": "headsha"}}}' > "$payload"
+    echo '{"repository": {"name": "x"}}' > "$no_pr"
+    {
+        printf '%s\n' "$block"
+        echo 'echo "RESULT ${TAG_NAME}|${IS_PRERELEASE}|${TARGET_SHA}|${TARGET_ARGS[*]}"'
+    } > "$script"
+
+    # The counter is global and named for this section on purpose. A local
+    # read through bash's dynamic scoping works only while the helper is
+    # called from here: moved elsewhere it would write a fresh variable and
+    # the section would report zero failures while cases were failing.
+    # Harness errors are left on stderr rather than discarded, so a broken
+    # extraction says so instead of showing up as "got []".
+    RELEASE_TARGET_FAILURES=0
+    release_target_case() {  # name expected-RESULT env...
+        local name="$1" expected="$2"
+        shift 2
+        local got
+        got=$(env "$@" bash "$script" | grep '^RESULT ' | sed 's/^RESULT //')
+        if [[ "$got" == "$expected" ]]; then
+            print_status "SUCCESS" "$name"
+        else
+            print_status "ERROR" "$name: expected [$expected] got [$got]"
+            RELEASE_TARGET_FAILURES=$((RELEASE_TARGET_FAILURES + 1))
+        fi
+    }
+
+    # A pull request tags the head commit out of the event payload: not the
+    # merge commit GITHUB_SHA holds, and not the default branch.
+    release_target_case "pull request targets the head commit" \
+        "1st-draft-release|true|headsha|--target headsha" \
+        GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
+        GITHUB_SHA=mergecommitsha "GITHUB_EVENT_PATH=$payload"
+
+    # A payload without a pull_request object (an event this branch should
+    # not see) leaves --target off rather than passing a null
+    release_target_case "payload without a pull request leaves --target off" \
+        "1st-draft-release|true||" \
+        GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
+        GITHUB_SHA=mergecommitsha "GITHUB_EVENT_PATH=$no_pr"
+
+    # Unreadable payload: no --target, which is the behaviour before #77. The
+    # release is still created; a warning says where the tag landed.
+    release_target_case "unreadable payload leaves --target off" \
+        "1st-draft-release|true||" \
+        GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
+        GITHUB_SHA=mergecommitsha GITHUB_EVENT_PATH=/nonexistent/event.json
+
+    # A tag push needs no target: the tag is the trigger
+    release_target_case "tag push keeps the tag it was given" \
+        "v1.2.3|false||" \
+        GITHUB_HEAD_REF= GITHUB_REF=refs/tags/v1.2.3 GITHUB_SHA=tagsha
+
+    # A branch push builds GITHUB_SHA itself
+    release_target_case "branch push targets the pushed commit" \
+        "main-release|true|pushedsha|--target pushedsha" \
+        GITHUB_HEAD_REF= GITHUB_REF=refs/heads/main GITHUB_SHA=pushedsha
+
+    release_target_case "fallback targets the pushed commit" \
+        "release-42|true|somesha|--target somesha" \
+        GITHUB_HEAD_REF= GITHUB_REF= GITHUB_SHA=somesha GITHUB_RUN_NUMBER=42
+
+    rm -f "$script" "$payload" "$no_pr"
+
+    if [[ "$RELEASE_TARGET_FAILURES" -gt 0 ]]; then
+        print_status "ERROR" \
+            "Release target test failed ($RELEASE_TARGET_FAILURES case(s))"
+        return 1
+    fi
+
+    print_status "SUCCESS" "Release target test completed successfully"
+    return 0
+}
+
 # Method 2: Local LaTeX test (if LaTeX is installed)
 test_local() {
     print_header "Local LaTeX Test"
@@ -321,9 +425,10 @@ print_summary() {
     echo -e "\nTest Results:"
     echo -e "  Logic Test:           ${1}"
     echo -e "  Missing Files Test:   ${2}"
-    echo -e "  Local LaTeX Test:     ${3}"
-    echo -e "  Docker Test:          ${4}"
-    echo -e "  Act Test:             ${5}"
+    echo -e "  Release Target Test:  ${3}"
+    echo -e "  Local LaTeX Test:     ${4}"
+    echo -e "  Docker Test:          ${5}"
+    echo -e "  Act Test:             ${6}"
     
     echo -e "\nRecommendations:"
     if [[ "$1" == "${GREEN}PASSED${NC}" ]]; then
@@ -334,7 +439,11 @@ print_summary() {
         echo "  ✓ Missing file handling works correctly (new feature)"
     fi
     
-    if [[ "$3" == "${GREEN}PASSED${NC}" ]] || [[ "$4" == "${GREEN}PASSED${NC}" ]]; then
+    if [[ "$3" == "${GREEN}PASSED${NC}" ]]; then
+        echo "  ✓ Release tags point at the commit that was built"
+    fi
+
+    if [[ "$4" == "${GREEN}PASSED${NC}" ]] || [[ "$5" == "${GREEN}PASSED${NC}" ]]; then
         echo "  ✓ LaTeX compilation verified"
     else
         echo "  - Install LaTeX locally or use Docker for full testing"
@@ -356,6 +465,7 @@ main() {
     # Test results
     local LOGIC_RESULT="${YELLOW}SKIPPED${NC}"
     local MISSING_FILES_RESULT="${YELLOW}SKIPPED${NC}"
+    local TARGET_RESULT="${YELLOW}SKIPPED${NC}"
     local LOCAL_RESULT="${YELLOW}SKIPPED${NC}"
     local DOCKER_RESULT="${YELLOW}SKIPPED${NC}"
     local ACT_RESULT="${YELLOW}SKIPPED${NC}"
@@ -366,6 +476,9 @@ main() {
             ;;
         "missing")
             test_missing_files && MISSING_FILES_RESULT="${GREEN}PASSED${NC}" || MISSING_FILES_RESULT="${RED}FAILED${NC}"
+            ;;
+        "target")
+            test_release_target && TARGET_RESULT="${GREEN}PASSED${NC}" || TARGET_RESULT="${RED}FAILED${NC}"
             ;;
         "local")
             test_local && LOCAL_RESULT="${GREEN}PASSED${NC}" || LOCAL_RESULT="${RED}FAILED${NC}"
@@ -380,6 +493,7 @@ main() {
             # Run all tests
             test_logic && LOGIC_RESULT="${GREEN}PASSED${NC}" || LOGIC_RESULT="${RED}FAILED${NC}"
             test_missing_files && MISSING_FILES_RESULT="${GREEN}PASSED${NC}" || MISSING_FILES_RESULT="${RED}FAILED${NC}"
+            test_release_target && TARGET_RESULT="${GREEN}PASSED${NC}" || TARGET_RESULT="${RED}FAILED${NC}"
             test_local && LOCAL_RESULT="${GREEN}PASSED${NC}" || LOCAL_RESULT="${YELLOW}N/A${NC}"
             test_docker && DOCKER_RESULT="${GREEN}PASSED${NC}" || DOCKER_RESULT="${YELLOW}N/A${NC}"
             test_act && ACT_RESULT="${GREEN}PASSED${NC}" || ACT_RESULT="${YELLOW}N/A${NC}"
@@ -391,6 +505,7 @@ main() {
             echo "  all     - Run all available tests (default)"
             echo "  logic   - Test action logic only (no LaTeX required)"
             echo "  missing - Test missing file handling (new feature)"
+            echo "  target  - Test which commit each context tags"
             echo "  local   - Test with local LaTeX installation"
             echo "  docker  - Test with Docker container"
             echo "  act     - Test with GitHub Actions emulator"
@@ -399,6 +514,7 @@ main() {
             echo "  $0          # Run all tests"
             echo "  $0 logic    # Quick logic test"
             echo "  $0 missing  # Test missing file skip feature"
+            echo "  $0 target   # Test release tag targeting"
             echo "  $0 docker   # Docker-based test"
             exit 0
             ;;
@@ -409,9 +525,21 @@ main() {
             ;;
     esac
     
-    print_summary "$LOGIC_RESULT" "$MISSING_FILES_RESULT" "$LOCAL_RESULT" "$DOCKER_RESULT" "$ACT_RESULT"
+    print_summary "$LOGIC_RESULT" "$MISSING_FILES_RESULT" "$TARGET_RESULT" \
+        "$LOCAL_RESULT" "$DOCKER_RESULT" "$ACT_RESULT"
     
     echo ""
+    # The dependency-free sections decide the exit status, so that CI (and a
+    # shell && chain) sees a failure. The LaTeX sections are left out on
+    # purpose: they report N/A when latexmk, Docker or act is missing, which
+    # is not a failure of the action.
+    for result in "$LOGIC_RESULT" "$MISSING_FILES_RESULT" "$TARGET_RESULT"; do
+        if [[ "$result" == *FAILED* ]]; then
+            print_status "ERROR" "Test suite failed"
+            exit 1
+        fi
+    done
+
     print_status "SUCCESS" "Test suite completed!"
 }
 

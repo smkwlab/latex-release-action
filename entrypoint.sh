@@ -282,33 +282,70 @@ echo "::group::Creating GitHub Release"
 # Get release name from input
 INPUT_RELEASE_NAME="${INPUT_RELEASE_NAME:-}"
 
-# Determine release tag and name based on context
+# Determine release tag, name and target commit based on context
+#
+# test.sh runs the block between these two markers as-is, so that the
+# contexts are checked against this file rather than a copy of it (#77).
+# Keep the markers; the prose around them is free to change.
+# --- BEGIN release-target-block ---
 if [[ -n "${GITHUB_HEAD_REF}" ]]; then
   # Pull request context
   TAG_NAME="${GITHUB_HEAD_REF}-release"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-${GITHUB_HEAD_REF} Release}"
   IS_PRERELEASE="true"
+  # The tag has to name the text that was released (#77). Two values are at
+  # hand and neither does: GITHUB_SHA is the pull request's merge commit,
+  # which no branch reaches, and leaving --target off puts the tag on the
+  # default branch's tip, which can carry none of the document. The commit
+  # the author pushed is in the event payload.
+  #
+  # Read it from there rather than asking the API. `gh pr view` needs
+  # pull-requests: read, which callers do not grant -- measured in a student
+  # repository, where this script's own PR-changes check above logs "Could
+  # not retrieve PR changed files" on every run for that reason. A target
+  # that depends on a permission nobody noticed missing is the same silent
+  # failure this issue is about.
+  # jq's own message is left in the log: the warning below says what the
+  # consequence is, not why the payload could not be read
+  TARGET_SHA=$(jq -r '.pull_request.head.sha // empty' \
+    "${GITHUB_EVENT_PATH}" || true)
+  if [[ -z "${TARGET_SHA}" ]]; then
+    echo "::warning::Could not read the pull request's head commit from ${GITHUB_EVENT_PATH}; the tag will land on the default branch instead (#77)"
+  fi
 elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
   # Tag push context
   TAG_NAME="${GITHUB_REF#refs/tags/}"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-${TAG_NAME} Release}"
   IS_PRERELEASE="false"
+  # The tag is the trigger, so it already points at the built commit
+  TARGET_SHA=""
 elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
   # Branch push context
   BRANCH_NAME="${GITHUB_REF#refs/heads/}"
   TAG_NAME="${BRANCH_NAME}-release"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-${BRANCH_NAME} Release}"
   IS_PRERELEASE="true"
+  # Here GITHUB_SHA is the pushed commit itself
+  TARGET_SHA="${GITHUB_SHA}"
 else
   # Fallback to run number
   TAG_NAME="release-${GITHUB_RUN_NUMBER}"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-Release ${GITHUB_RUN_NUMBER}}"
   IS_PRERELEASE="true"
+  TARGET_SHA="${GITHUB_SHA}"
 fi
 
 echo "Tag name: ${TAG_NAME}"
 echo "Release name: ${RELEASE_NAME}"
 echo "Is prerelease: ${IS_PRERELEASE}"
+echo "Target commit: ${TARGET_SHA:-(default branch)}"
+
+# Pass --target only with a commit to name; an empty value would be an error
+TARGET_ARGS=()
+if [[ -n "${TARGET_SHA}" ]]; then
+  TARGET_ARGS=(--target "${TARGET_SHA}")
+fi
+# --- END release-target-block ---
 
 # Convert PDF_FILES to array
 IFS=',' read -ra PDF_ARRAY <<< "${PDF_FILES}"
@@ -325,6 +362,7 @@ fi
 # Create release using GitHub CLI with auto-generated notes
 if [[ "${IS_PRERELEASE}" == "true" ]]; then
   gh release create "${TAG_NAME}" \
+    "${TARGET_ARGS[@]}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
     --prerelease \
@@ -338,6 +376,7 @@ else
   # Note: By default, gh CLI marks releases as latest unless --prerelease is specified
   # We don't specify --latest to allow GitHub's automatic latest detection
   gh release create "${TAG_NAME}" \
+    "${TARGET_ARGS[@]}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
     "${PDF_ARRAY[@]}" || {
