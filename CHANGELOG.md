@@ -10,6 +10,9 @@
 - Document where the release tag lands, and correct the tag-push bullet in both READMEs (#78)
 - Update reviewdog/action-actionlint digest (#76)
 
+### Removed
+- Drop the PR .tex-change check: it never ran without pull-requests: read, and would have skipped builds when only a figure changed (#80, #81)
+
 ### Fixed
 - Point the prerelease tag at the commit that was built, read from the event payload (#77, #78)
 
