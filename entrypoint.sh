@@ -283,6 +283,11 @@ echo "::group::Creating GitHub Release"
 INPUT_RELEASE_NAME="${INPUT_RELEASE_NAME:-}"
 
 # Determine release tag, name and target commit based on context
+#
+# test.sh runs the block between these two markers as-is, so that the
+# contexts are checked against this file rather than a copy of it (#77).
+# Keep the markers; the prose around them is free to change.
+# --- BEGIN release-target-block ---
 if [[ -n "${GITHUB_HEAD_REF}" ]]; then
   # Pull request context
   TAG_NAME="${GITHUB_HEAD_REF}-release"
@@ -340,6 +345,7 @@ TARGET_ARGS=()
 if [[ -n "${TARGET_SHA}" ]]; then
   TARGET_ARGS=(--target "${TARGET_SHA}")
 fi
+# --- END release-target-block ---
 
 # Convert PDF_FILES to array
 IFS=',' read -ra PDF_ARRAY <<< "${PDF_FILES}"

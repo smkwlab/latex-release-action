@@ -206,12 +206,12 @@ test_release_target() {
     # does and where the release ends up pointing, so a copy here would be
     # able to pass while the shipped script is wrong.
     local block
-    block=$(sed -n '/^# Determine release tag, name and target commit based on context$/,/^# Convert PDF_FILES to array$/p' \
-        entrypoint.sh | sed '$d')
+    block=$(sed -n '/^# --- BEGIN release-target-block ---$/,/^# --- END release-target-block ---$/p' \
+        entrypoint.sh | sed '1d;$d')
 
     if [[ -z "$block" ]]; then
         print_status "ERROR" \
-            "Could not extract the release target block from entrypoint.sh (its marker comments may have changed)"
+            "Could not extract the release target block from entrypoint.sh (its BEGIN/END markers may have changed)"
         return 1
     fi
 
