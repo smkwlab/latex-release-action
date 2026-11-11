@@ -223,58 +223,65 @@ test_release_target() {
         echo 'echo "RESULT ${TAG_NAME}|${IS_PRERELEASE}|${TARGET_SHA}|${TARGET_ARGS[*]}"'
     } > "$script"
 
-    local failures=0
-    check_target() {  # name expected-RESULT env...
+    # The counter is global and named for this section on purpose. A local
+    # read through bash's dynamic scoping works only while the helper is
+    # called from here: moved elsewhere it would write a fresh variable and
+    # the section would report zero failures while cases were failing.
+    # Harness errors are left on stderr rather than discarded, so a broken
+    # extraction says so instead of showing up as "got []".
+    RELEASE_TARGET_FAILURES=0
+    release_target_case() {  # name expected-RESULT env...
         local name="$1" expected="$2"
         shift 2
         local got
-        got=$(env "$@" bash "$script" 2>/dev/null | grep '^RESULT ' | sed 's/^RESULT //')
+        got=$(env "$@" bash "$script" | grep '^RESULT ' | sed 's/^RESULT //')
         if [[ "$got" == "$expected" ]]; then
             print_status "SUCCESS" "$name"
         else
             print_status "ERROR" "$name: expected [$expected] got [$got]"
-            failures=$((failures + 1))
+            RELEASE_TARGET_FAILURES=$((RELEASE_TARGET_FAILURES + 1))
         fi
     }
 
     # A pull request tags the head commit: not the merge commit GITHUB_SHA
     # holds, and not the default branch.
-    check_target "pull request targets the head commit" \
+    release_target_case "pull request targets the head commit" \
         "1st-draft-release|true|headsha|--target headsha" \
         GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
         GITHUB_SHA=mergecommitsha GH_HEAD_OID=headsha
 
     # Same, when the run carries no refs/pull/N/merge to read the number from
-    check_target "pull request falls back to the branch lookup" \
+    release_target_case "pull request falls back to the branch lookup" \
         "1st-draft-release|true|headsha|--target headsha" \
         GITHUB_HEAD_REF=1st-draft GITHUB_REF= \
         GITHUB_SHA=mergecommitsha GH_HEAD_OID=headsha
 
     # Unresolvable head: no --target, which is the behaviour before #77. The
     # release is still created; a warning says where the tag landed.
-    check_target "unresolvable head leaves --target off" \
+    release_target_case "unresolvable head leaves --target off" \
         "1st-draft-release|true||" \
         GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
         GITHUB_SHA=mergecommitsha GH_FAILS=1
 
     # A tag push needs no target: the tag is the trigger
-    check_target "tag push keeps the tag it was given" \
+    release_target_case "tag push keeps the tag it was given" \
         "v1.2.3|false||" \
         GITHUB_HEAD_REF= GITHUB_REF=refs/tags/v1.2.3 GITHUB_SHA=tagsha
 
     # A branch push builds GITHUB_SHA itself
-    check_target "branch push targets the pushed commit" \
+    release_target_case "branch push targets the pushed commit" \
         "main-release|true|pushedsha|--target pushedsha" \
         GITHUB_HEAD_REF= GITHUB_REF=refs/heads/main GITHUB_SHA=pushedsha
 
-    check_target "fallback targets the pushed commit" \
+    release_target_case "fallback targets the pushed commit" \
         "release-42|true|somesha|--target somesha" \
         GITHUB_HEAD_REF= GITHUB_REF= GITHUB_SHA=somesha GITHUB_RUN_NUMBER=42
 
     rm -f "$script"
 
-    if [[ "$failures" -gt 0 ]]; then
-        print_status "ERROR" "Release target test failed ($failures case(s))"
+    if [[ "$RELEASE_TARGET_FAILURES" -gt 0 ]]; then
+        print_status "ERROR" \
+            "Release target test failed ($RELEASE_TARGET_FAILURES case(s))"
         return 1
     fi
 
