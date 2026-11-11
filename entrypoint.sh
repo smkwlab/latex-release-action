@@ -300,8 +300,10 @@ if [[ -n "${GITHUB_HEAD_REF}" ]]; then
   # not retrieve PR changed files" on every run for that reason. A target
   # that depends on a permission nobody noticed missing is the same silent
   # failure this issue is about.
+  # jq's own message is left in the log: the warning below says what the
+  # consequence is, not why the payload could not be read
   TARGET_SHA=$(jq -r '.pull_request.head.sha // empty' \
-    "${GITHUB_EVENT_PATH}" 2>/dev/null || true)
+    "${GITHUB_EVENT_PATH}" || true)
   if [[ -z "${TARGET_SHA}" ]]; then
     echo "::warning::Could not read the pull request's head commit from ${GITHUB_EVENT_PATH}; the tag will land on the default branch instead (#77)"
   fi
