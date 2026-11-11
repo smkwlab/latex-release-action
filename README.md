@@ -189,12 +189,12 @@ with:
 
 ### Pull Requests
 - 🔨 Builds LaTeX documents for verification
-- 📋 Creates **pre-release** with tag: `{branch-name}-release`
+- 📋 Creates **pre-release** with tag: `{branch-name}-release`, pointing at the pull request's head commit
 - ✅ Validates compilation without affecting main releases
 
 ### Tag Pushes
 - 🚀 Builds LaTeX documents for production
-- 📦 Creates **release** with tag: `{tag-name}-release`
+- 📦 Creates **release** for the pushed tag, leaving the tag where it points
 - 📄 Automatically attaches compiled PDFs
 
 ### Generated Release Content

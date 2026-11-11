@@ -282,33 +282,63 @@ echo "::group::Creating GitHub Release"
 # Get release name from input
 INPUT_RELEASE_NAME="${INPUT_RELEASE_NAME:-}"
 
-# Determine release tag and name based on context
+# Determine release tag, name and target commit based on context
 if [[ -n "${GITHUB_HEAD_REF}" ]]; then
   # Pull request context
   TAG_NAME="${GITHUB_HEAD_REF}-release"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-${GITHUB_HEAD_REF} Release}"
   IS_PRERELEASE="true"
+  # The tag has to name the text that was released (#77). Two values are at
+  # hand and neither does: GITHUB_SHA is the pull request's merge commit,
+  # which no branch reaches, and leaving --target off puts the tag on the
+  # default branch's tip, which can carry none of the document. Ask for the
+  # head commit, the one the author pushed. gh is in this image; jq is not,
+  # so read the field with gh's own --jq.
+  TARGET_SHA=""
+  if [[ "${GITHUB_REF}" =~ refs/pull/([0-9]+)/merge ]]; then
+    TARGET_SHA=$(gh pr view "${BASH_REMATCH[1]}" --json headRefOid \
+      --jq '.headRefOid' 2>/dev/null || true)
+  fi
+  if [[ -z "${TARGET_SHA}" ]]; then
+    TARGET_SHA=$(gh pr view "${GITHUB_HEAD_REF}" --json headRefOid \
+      --jq '.headRefOid' 2>/dev/null || true)
+  fi
+  if [[ -z "${TARGET_SHA}" ]]; then
+    echo "::warning::Could not resolve the pull request's head commit; the tag will land on the default branch instead (#77)"
+  fi
 elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
   # Tag push context
   TAG_NAME="${GITHUB_REF#refs/tags/}"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-${TAG_NAME} Release}"
   IS_PRERELEASE="false"
+  # The tag is the trigger, so it already points at the built commit
+  TARGET_SHA=""
 elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
   # Branch push context
   BRANCH_NAME="${GITHUB_REF#refs/heads/}"
   TAG_NAME="${BRANCH_NAME}-release"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-${BRANCH_NAME} Release}"
   IS_PRERELEASE="true"
+  # Here GITHUB_SHA is the pushed commit itself
+  TARGET_SHA="${GITHUB_SHA}"
 else
   # Fallback to run number
   TAG_NAME="release-${GITHUB_RUN_NUMBER}"
   RELEASE_NAME="${INPUT_RELEASE_NAME:-Release ${GITHUB_RUN_NUMBER}}"
   IS_PRERELEASE="true"
+  TARGET_SHA="${GITHUB_SHA}"
 fi
 
 echo "Tag name: ${TAG_NAME}"
 echo "Release name: ${RELEASE_NAME}"
 echo "Is prerelease: ${IS_PRERELEASE}"
+echo "Target commit: ${TARGET_SHA:-(default branch)}"
+
+# Pass --target only with a commit to name; an empty value would be an error
+TARGET_ARGS=()
+if [[ -n "${TARGET_SHA}" ]]; then
+  TARGET_ARGS=(--target "${TARGET_SHA}")
+fi
 
 # Convert PDF_FILES to array
 IFS=',' read -ra PDF_ARRAY <<< "${PDF_FILES}"
@@ -325,6 +355,7 @@ fi
 # Create release using GitHub CLI with auto-generated notes
 if [[ "${IS_PRERELEASE}" == "true" ]]; then
   gh release create "${TAG_NAME}" \
+    "${TARGET_ARGS[@]}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
     --prerelease \
@@ -338,6 +369,7 @@ else
   # Note: By default, gh CLI marks releases as latest unless --prerelease is specified
   # We don't specify --latest to allow GitHub's automatic latest detection
   gh release create "${TAG_NAME}" \
+    "${TARGET_ARGS[@]}" \
     --title "${RELEASE_NAME}" \
     --generate-notes \
     "${PDF_ARRAY[@]}" || {
