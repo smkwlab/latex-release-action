@@ -291,20 +291,19 @@ if [[ -n "${GITHUB_HEAD_REF}" ]]; then
   # The tag has to name the text that was released (#77). Two values are at
   # hand and neither does: GITHUB_SHA is the pull request's merge commit,
   # which no branch reaches, and leaving --target off puts the tag on the
-  # default branch's tip, which can carry none of the document. Ask for the
-  # head commit, the one the author pushed. gh is in this image; jq is not,
-  # so read the field with gh's own --jq.
-  TARGET_SHA=""
-  if [[ "${GITHUB_REF}" =~ refs/pull/([0-9]+)/merge ]]; then
-    TARGET_SHA=$(gh pr view "${BASH_REMATCH[1]}" --json headRefOid \
-      --jq '.headRefOid' 2>/dev/null || true)
-  fi
+  # default branch's tip, which can carry none of the document. The commit
+  # the author pushed is in the event payload.
+  #
+  # Read it from there rather than asking the API. `gh pr view` needs
+  # pull-requests: read, which callers do not grant -- measured in a student
+  # repository, where this script's own PR-changes check above logs "Could
+  # not retrieve PR changed files" on every run for that reason. A target
+  # that depends on a permission nobody noticed missing is the same silent
+  # failure this issue is about.
+  TARGET_SHA=$(jq -r '.pull_request.head.sha // empty' \
+    "${GITHUB_EVENT_PATH}" 2>/dev/null || true)
   if [[ -z "${TARGET_SHA}" ]]; then
-    TARGET_SHA=$(gh pr view "${GITHUB_HEAD_REF}" --json headRefOid \
-      --jq '.headRefOid' 2>/dev/null || true)
-  fi
-  if [[ -z "${TARGET_SHA}" ]]; then
-    echo "::warning::Could not resolve the pull request's head commit; the tag will land on the default branch instead (#77)"
+    echo "::warning::Could not read the pull request's head commit from ${GITHUB_EVENT_PATH}; the tag will land on the default branch instead (#77)"
   fi
 elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
   # Tag push context

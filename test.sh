@@ -210,15 +210,25 @@ test_release_target() {
         entrypoint.sh | sed '$d')
 
     if [[ -z "$block" ]]; then
-        print_status "ERROR" "Could not extract the release target block from entrypoint.sh"
+        print_status "ERROR" \
+            "Could not extract the release target block from entrypoint.sh (its marker comments may have changed)"
         return 1
     fi
 
-    local script
+    # The block reads the event payload with jq, and so does the real action
+    # (the Dockerfile installs it). Run the real filter rather than a stub.
+    if ! command -v jq > /dev/null 2>&1; then
+        print_status "ERROR" "jq is required to run this test (the action uses it to read the event payload)"
+        return 1
+    fi
+
+    local script payload no_pr
     script=$(mktemp)
+    payload=$(mktemp)
+    no_pr=$(mktemp)
+    echo '{"pull_request": {"head": {"sha": "headsha"}}}' > "$payload"
+    echo '{"repository": {"name": "x"}}' > "$no_pr"
     {
-        # Stands in for: gh pr view <n> --json headRefOid --jq .headRefOid
-        echo 'gh() { [ "${GH_FAILS:-}" = 1 ] && return 1; echo "${GH_HEAD_OID:-}"; }'
         printf '%s\n' "$block"
         echo 'echo "RESULT ${TAG_NAME}|${IS_PRERELEASE}|${TARGET_SHA}|${TARGET_ARGS[*]}"'
     } > "$script"
@@ -243,25 +253,26 @@ test_release_target() {
         fi
     }
 
-    # A pull request tags the head commit: not the merge commit GITHUB_SHA
-    # holds, and not the default branch.
+    # A pull request tags the head commit out of the event payload: not the
+    # merge commit GITHUB_SHA holds, and not the default branch.
     release_target_case "pull request targets the head commit" \
         "1st-draft-release|true|headsha|--target headsha" \
         GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
-        GITHUB_SHA=mergecommitsha GH_HEAD_OID=headsha
+        GITHUB_SHA=mergecommitsha "GITHUB_EVENT_PATH=$payload"
 
-    # Same, when the run carries no refs/pull/N/merge to read the number from
-    release_target_case "pull request falls back to the branch lookup" \
-        "1st-draft-release|true|headsha|--target headsha" \
-        GITHUB_HEAD_REF=1st-draft GITHUB_REF= \
-        GITHUB_SHA=mergecommitsha GH_HEAD_OID=headsha
-
-    # Unresolvable head: no --target, which is the behaviour before #77. The
-    # release is still created; a warning says where the tag landed.
-    release_target_case "unresolvable head leaves --target off" \
+    # A payload without a pull_request object (an event this branch should
+    # not see) leaves --target off rather than passing a null
+    release_target_case "payload without a pull request leaves --target off" \
         "1st-draft-release|true||" \
         GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
-        GITHUB_SHA=mergecommitsha GH_FAILS=1
+        GITHUB_SHA=mergecommitsha "GITHUB_EVENT_PATH=$no_pr"
+
+    # Unreadable payload: no --target, which is the behaviour before #77. The
+    # release is still created; a warning says where the tag landed.
+    release_target_case "unreadable payload leaves --target off" \
+        "1st-draft-release|true||" \
+        GITHUB_HEAD_REF=1st-draft GITHUB_REF=refs/pull/2/merge \
+        GITHUB_SHA=mergecommitsha GITHUB_EVENT_PATH=/nonexistent/event.json
 
     # A tag push needs no target: the tag is the trigger
     release_target_case "tag push keeps the tag it was given" \
@@ -277,7 +288,7 @@ test_release_target() {
         "release-42|true|somesha|--target somesha" \
         GITHUB_HEAD_REF= GITHUB_REF= GITHUB_SHA=somesha GITHUB_RUN_NUMBER=42
 
-    rm -f "$script"
+    rm -f "$script" "$payload" "$no_pr"
 
     if [[ "$RELEASE_TARGET_FAILURES" -gt 0 ]]; then
         print_status "ERROR" \
